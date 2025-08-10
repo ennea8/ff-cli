@@ -1,0 +1,14 @@
+#!/usr/bin/env node
+
+const path = require('path');
+require('ts-node').register({
+  transpileOnly: true,
+  compilerOptions: {
+    module: 'commonjs',
+    target: 'es2020',
+    esModuleInterop: true,
+    resolveJsonModule: true,
+  }
+});
+
+require(path.join(__dirname, '../src/cli.ts'));
