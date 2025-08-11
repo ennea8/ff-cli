@@ -43,7 +43,7 @@ To install the CLI globally on your system:
 
 ```bash
 # From the project directory
-pnpm i -g .
+pnpm install-global
 
 # Now you can run commands directly
 ff say-hello
