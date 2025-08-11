@@ -1,0 +1,21 @@
+# Source files
+cli/src/
+tsconfig.json
+
+# Development files
+.git/
+.github/
+.vscode/
+node_modules/
+.gitignore
+
+# Data files
+data/
+!data/receivers-template.csv
+
+# Log files
+logs/
+
+# Environment files
+.env
+.env.*

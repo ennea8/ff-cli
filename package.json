@@ -1,7 +1,7 @@
 {
   "name": "ff-cli",
   "version": "1.0.0",
-  "description": "",
+  "description": "Solana token batch transfer CLI tool",
   "main": "dist/cli.js",
   "bin": {
     "ff": "./bin/ff"
@@ -11,12 +11,19 @@
     "build": "tsc",
     "start": "node dist/cli.js",
     "dev": "pnpx tsx cli/src/cli.ts",
-    "prepublish": "npm run build",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm test",
+    "version": "git add -A",
+    "postversion": "git push && git push --tags",
     "install-global": "npm link"
   },
-  "keywords": [],
+  "keywords": ["solana", "cli", "blockchain", "token", "transfer", "batch", "crypto"],
   "author": "",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ennea8/ff-cli.git"
+  },
   "dependencies": {
     "@solana/spl-token": "^0.4.13",
     "@solana/web3.js": "^1.98.4",
