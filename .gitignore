@@ -2,9 +2,11 @@ node_modules
 dist
 accounts
 
-*.env
-/*task*
 /logs
 /data
 /out
 /accounts
+
+*.env
+/task*.md
+/test*.md

@@ -1,20 +1,67 @@
+# FF CLI Tool
 
+A command-line interface (CLI) tool for batch operations on the Solana blockchain.
 
-## DEV
+## Features
 
-```sh
-# say hello
-pnpx tsx ./cli/src/cli.ts say-hello
+- Batch transfer SOL to multiple recipients
+- Batch transfer SPL tokens to multiple recipients
+- Resumable transfers with progress tracking
+- Configurable batch sizes
 
-# batch transfer sol
-pnpx tsx ./cli/src/cli.ts solana-transfer --rpc $RPC_HTTPS --keypair ./accounts/sender.json --receivers ./data/receivers.csv --batch 1
+## Usage
 
+### Development
 
-pnpx tsx ./cli/src/cli.ts solana-transfer --rpc https://devnet.helius-rpc.com/?api-key=afe5087b-10ea-4af5-b0bb-866dfe19a77d --keypair /Users/kx/.config/solana/id.json --receivers ./data/receivers-1.csv --batch-size 1
+To run commands during development:
 
-pnpx tsx ./cli/src/cli.ts solana-transfer --keypair /Users/kx/.config/solana/id.json --receivers ./data/receivers-1.csv --batch-size 1
+```bash
+# Say hello (basic test command)
+pnpm run dev say-hello
+
+# Transfer SOL to multiple recipients
+pnpm run dev solana-transfer --keypair /path/to/keypair.json --receivers ./data/receivers.csv --batch-size 1
+
+# Transfer SPL tokens to multiple recipients
+pnpm run dev token-transfer --keypair /path/to/keypair.json --receivers ./data/receivers.csv --mint TOKEN_MINT_ADDRESS --batch-size 1
+```
+
+### Command Options
+
+#### SOL Transfer
+
+```bash
+ff solana-transfer \
+  --keypair /path/to/keypair.json \
+  --receivers ./data/receivers.csv \
+  --batch-size 5 \
+  --rpc https://api.mainnet-beta.solana.com  # Optional, defaults to SOLANA_RPC_URL env variable
+```
+
+#### SPL Token Transfer
+
+```bash
+ff token-transfer \
+  --keypair /path/to/keypair.json \
+  --receivers ./data/receivers.csv \
+  --mint TOKEN_MINT_ADDRESS \
+  --batch-size 5 \
+  --rpc https://api.mainnet-beta.solana.com  # Optional, defaults to SOLANA_RPC_URL env variable
+```
+
+### CSV Format
+
+The receivers CSV file should contain the following columns:
 
 ```
+address,amount
+FIRST_ADDRESS,0.01
+SECOND_ADDRESS,0.02
+THIRD_ADDRESS,0.03
+```
+
+- For SOL transfers, the amount is in SOL units
+- For token transfers, the amount is in token units
 
 ## Building and Installation
 

@@ -9,6 +9,7 @@ dotenv.config();
 
 import { sayHello } from './hello';
 import { executeTransfer } from './solana-transfer';
+import { executeTokenTransfer } from './token-transfer';
 
 program.command('say-hello')
   .description('Say hello')
@@ -29,6 +30,20 @@ program
       options.receivers,
       options.batchSize
     );
+  });
+
+// SPL Token batch transfer command
+program
+  .command('token-transfer')
+  .description('Batch transfer SPL tokens to multiple addresses')
+  .requiredOption('--keypair <path>', 'Path to keypair file', process.env.SOLANA_KEYPAIR_PATH)
+  .requiredOption('--receivers <path>', 'Path to CSV file with receivers')
+  .requiredOption('--mint <address>', 'SPL Token mint address')
+  .option('--rpc <url>', 'RPC URL', process.env.SOLANA_RPC_URL)
+  .option('--batch-size <number>', 'Number of transfers per batch', (value) => parseInt(value, 10), 1)
+  .action((options) => {
+    const { keypair, receivers, rpc, mint, batchSize } = options;
+    executeTokenTransfer(rpc, keypair, receivers, mint, batchSize);
   });
 
 program
