@@ -11,6 +11,22 @@ A command-line interface (CLI) tool for batch operations on the Solana blockchai
 
 ## Usage
 
+## Installation
+
+```bash
+pnpm install -g ff-cli
+ or 
+npm install -g ff-cli
+
+```
+
+```bash
+## test
+ff --version
+ff say-hello
+```
+
+
 ### Development
 
 To run commands during development:
