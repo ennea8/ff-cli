@@ -18,9 +18,9 @@ program.command('say-hello')
 program
   .command('solana-transfer')
   .description('Batch transfer SOL to multiple addresses')
-  .requiredOption('--rpc <url>', 'Solana RPC URL', process.env.SOLANA_RPC_URL)
   .requiredOption('--keypair <path>', 'Path to sender keypair file', process.env.SOLANA_KEYPAIR_PATH)
   .requiredOption('--receivers <path>', 'Path to CSV file containing receiver addresses and amounts')
+  .option('--rpc <url>', 'Solana RPC URL', process.env.SOLANA_RPC_URL)
   .option('--batch-size <size>', 'Number of transfers to process in a batch', (value) => parseInt(value, 10), 1)
   .action(async (options) => {
     await executeTransfer(
