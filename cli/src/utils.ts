@@ -54,7 +54,14 @@ export const readRecordsFromCSV = <T>(
 ): T[] => {
   try {
     const content = fs.readFileSync(csvFile, 'utf8');
-    const records = parse(content, {
+    
+    // Filter out comment lines (lines starting with #) before parsing
+    const filteredContent = content
+      .split('\n')
+      .filter(line => !line.trim().startsWith('#'))
+      .join('\n');
+    
+    const records = parse(filteredContent, {
       columns: true,
       skip_empty_lines: true,
     });
