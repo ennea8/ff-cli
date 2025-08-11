@@ -5,15 +5,16 @@ import {
   PublicKey,
   Transaction,
   sendAndConfirmTransaction,
+  TokenBalance,
 } from '@solana/web3.js';
 import {
   getOrCreateAssociatedTokenAccount,
-  createTransferInstruction,
-  getAssociatedTokenAddress,
-  TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountInstruction,
+  getAssociatedTokenAddress,
+  createTransferInstruction,
+  TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
-import { logger, getProgressFileName, saveProgress, loadProgress, readRecordsFromCSV } from './utils';
+import { logger, getProgressFileName, saveProgress, loadProgress, readRecordsFromCSV, logTransaction, logImportant } from './utils';
 
 // Interface for token recipient record from CSV
 interface TokenRecipientRecord {
@@ -44,7 +45,8 @@ const transferTokensToAddress = async (
   sender: Keypair,
   recipientAddress: string,
   mintAddress: string,
-  amount: number
+  amount: number,
+  logIdentifier: string // Added parameter for consistent logging
 ): Promise<string> => {
   try {
     const mint = new PublicKey(mintAddress);
@@ -110,7 +112,21 @@ const transferTokensToAddress = async (
       [sender]
     );
     
-    logger.info(`Transaction confirmed! Signature: ${signature}`);
+    // Use the consistent log identifier passed from the calling function
+    logTransaction(
+      logIdentifier,
+      `Transaction confirmed`,
+      signature,
+      {
+        type: 'token_transfer',
+        sender: sender.publicKey.toString(),
+        recipient: recipientAddress,
+        amount: amount,
+        mint: mintAddress,
+        accountCreated: !accountExists
+      }
+    );
+    
     return signature;
   } catch (error) {
     logger.error(`Failed to transfer tokens to ${recipientAddress}: ${error}`);
@@ -220,10 +236,25 @@ export const executeTokenTransfer = async (
           sender,
           recipient.address,
           mintAddress,
-          amount
+          amount,
+          receiversPath // Pass the receiversPath as log identifier
         );
         
-        logger.info(`Transfer successful! Signature: ${signature}`);
+        // Log important info about the batch progress
+        logImportant(
+          receiversPath, // Use the CSV file path as the log identifier
+          `Transfer successful!`, 
+          {
+            type: 'batch_progress',
+            signature: signature,
+            recipient: recipient.address,
+            amount: amount,
+            current: i + 1,
+            total: pendingRecipients.length,
+            batchNumber: batchIndex + 1,
+            totalBatches: totalBatches
+          }
+        );
         
         // Update progress
         const index = progress.findIndex(

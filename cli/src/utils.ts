@@ -6,7 +6,13 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-// Setup logger
+// Ensure logs directory exists
+const logsDir = path.join(process.cwd(), 'logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
+
+// Setup console logger with pretty print
 export const logger = pino({
   transport: {
     target: 'pino-pretty',
@@ -15,6 +21,73 @@ export const logger = pino({
     },
   },
 });
+
+// Global variable to store current file logger
+let currentFileLogger: pino.Logger | null = null;
+let currentLogFile: string | null = null;
+
+// Function to get a log file name based on input CSV file
+const getLogFileName = (inputFilePath: string): string => {
+  const baseName = path.basename(inputFilePath, path.extname(inputFilePath));
+  return `${baseName}.log`;
+};
+
+// Function to initialize or get file logger
+const getFileLogger = (inputFilePath: string): pino.Logger => {
+  // Generate log file name based on input file name
+  const logFileName = getLogFileName(inputFilePath);
+  const logFilePath = path.join(logsDir, logFileName);
+  
+  // If we already have a logger for this file, return it
+  if (currentFileLogger && currentLogFile === logFilePath) {
+    return currentFileLogger;
+  }
+  
+  // Create a new logger
+  const fileTransport = pino.transport({
+    target: 'pino/file',
+    options: { destination: logFilePath }
+  });
+  
+  currentFileLogger = pino(fileTransport);
+  currentLogFile = logFilePath;
+  
+  return currentFileLogger;
+};
+
+// Enhanced logger functions
+export const logTransaction = (inputFilePath: string, message: string, txHash: string, extraInfo?: Record<string, any>) => {
+  // Log to console
+  logger.info(`${message}: ${txHash}`);
+  
+  // Get file logger for this input file
+  const fileLogger = getFileLogger(inputFilePath);
+  
+  // Log to file with more details
+  fileLogger.info({
+    timestamp: new Date().toISOString(),
+    type: 'TRANSACTION',
+    message,
+    txHash,
+    ...extraInfo
+  });
+};
+
+export const logImportant = (inputFilePath: string, message: string, data?: Record<string, any>) => {
+  // Log to console
+  logger.info(message);
+  
+  // Get file logger for this input file
+  const fileLogger = getFileLogger(inputFilePath);
+  
+  // Log to file with more details
+  fileLogger.info({
+    timestamp: new Date().toISOString(),
+    type: 'IMPORTANT',
+    message,
+    ...data
+  });
+};
 
 // Create a progress tracking file name based on the input file
 export const getProgressFileName = (filePath: string): string => {
