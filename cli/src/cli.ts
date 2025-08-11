@@ -47,6 +47,6 @@ program
   });
 
 program
-  .version('1.0.0')
+  .version('0.0.4')
   .description('FF CLI tools for Solana operations')
   .parse();
