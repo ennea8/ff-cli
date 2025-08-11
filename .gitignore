@@ -13,3 +13,4 @@ accounts
 *.env
 /task*.md
 /test*.md
+/*.tgz

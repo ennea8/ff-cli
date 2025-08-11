@@ -10,7 +10,7 @@ node_modules/
 .gitignore
 
 # Data files
-data/
+data/*
 !data/receivers-template.csv
 
 # Log files
@@ -19,3 +19,6 @@ logs/
 # Environment files
 .env
 .env.*
+
+/task*
+/test*
