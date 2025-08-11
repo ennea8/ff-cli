@@ -35,6 +35,10 @@ importers:
       tsx:
         specifier: ^4.20.3
         version: 4.20.3
+    devDependencies:
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
 
 packages:
 

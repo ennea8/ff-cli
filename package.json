@@ -4,10 +4,15 @@
   "description": "",
   "main": "dist/cli.js",
   "bin": {
-    "ff": "./dist/cli.js"
+    "ff": "./bin/ff"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "dev": "pnpx tsx cli/src/cli.ts",
+    "prepublish": "npm run build",
+    "install-global": "npm link"
   },
   "keywords": [],
   "author": "",
@@ -24,6 +29,7 @@
     "tsx": "^4.20.3"
   },
   "devDependencies": {
-    "tsx": "^4.20.3"
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
   }
 }
