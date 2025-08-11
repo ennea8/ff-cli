@@ -226,10 +226,18 @@ export const executeTokenTransfer = async (
       
       try {
         // Convert amount string to correct decimal representation for token transfer
-        const amount = parseInt(recipient.amount);
-        if (isNaN(amount)) {
+        // SPL tokens typically use 9 decimal places (10^9 precision)
+        const DECIMALS = 9;
+        const PRECISION = Math.pow(10, DECIMALS);
+        
+        // Parse as float first to handle decimal values, then multiply by precision
+        const parsedAmount = parseFloat(recipient.amount);
+        if (isNaN(parsedAmount)) {
           throw new Error(`Invalid amount format: ${recipient.amount}`);
         }
+        
+        // Convert to token's smallest unit by multiplying by 10^9
+        const amount = Math.round(parsedAmount * PRECISION);
 
         const signature = await transferTokensToAddress(
           connection,
