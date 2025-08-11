@@ -4,3 +4,7 @@ accounts
 
 *.env
 /*task*
+/logs
+/data
+/out
+/accounts
