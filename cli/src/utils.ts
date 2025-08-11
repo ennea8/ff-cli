@@ -18,8 +18,9 @@ export const logger = pino({
 
 // Create a progress tracking file name based on the input file
 export const getProgressFileName = (filePath: string): string => {
+  const directory = path.dirname(filePath);
   const baseName = path.basename(filePath, path.extname(filePath));
-  return `${baseName}_progress.json`;
+  return path.join(directory, `${baseName}_progress.json`);
 };
 
 // Save progress to a JSON file

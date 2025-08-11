@@ -21,13 +21,13 @@ program
   .requiredOption('--rpc <url>', 'Solana RPC URL', process.env.SOLANA_RPC_URL)
   .requiredOption('--keypair <path>', 'Path to sender keypair file', process.env.SOLANA_KEYPAIR_PATH)
   .requiredOption('--receivers <path>', 'Path to CSV file containing receiver addresses and amounts')
-  .option('--batch <size>', 'Number of transfers to process in a batch', parseInt, 1)
+  .option('--batch-size <size>', 'Number of transfers to process in a batch', (value) => parseInt(value, 10), 1)
   .action(async (options) => {
     await executeTransfer(
       options.rpc,
       options.keypair,
       options.receivers,
-      options.batch
+      options.batchSize
     );
   });
 

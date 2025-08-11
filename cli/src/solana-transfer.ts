@@ -65,8 +65,16 @@ export const executeTransfer = async (
   rpcUrl: string,
   keypairPath: string,
   receiversPath: string,
-  batchSize: number
+  batchSize: number | string
 ) => {
+  // Ensure batchSize is a number
+  const batchSizeNum = typeof batchSize === 'string' ? parseInt(batchSize, 10) : batchSize;
+  if (isNaN(batchSizeNum) || batchSizeNum < 1) {
+    logger.error(`Invalid batch size: ${batchSize}, using default of 1`);
+    batchSize = 1;
+  } else {
+    batchSize = batchSizeNum;
+  }
   // Connect to the Solana cluster
   logger.info(`Connecting to Solana network at ${rpcUrl}`);
   const connection = new Connection(rpcUrl);
@@ -107,12 +115,16 @@ export const executeTransfer = async (
   }
 
   // Process transfers in batches
-  const pendingTransfers = recipients.filter(r => !r.transferred);
+  const pendingTransfers = recipients.filter(r => r.transferred !== true);
+  
+  // Calculate total batches
+  const totalBatches = Math.ceil(pendingTransfers.length / batchSize);
   
   for (let i = 0; i < pendingTransfers.length; i += batchSize) {
     const batch = pendingTransfers.slice(i, i + batchSize);
+    const currentBatch = Math.floor(i / batchSize) + 1;
     
-    logger.info(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(pendingTransfers.length / batchSize)}`);
+    logger.info(`Processing batch ${currentBatch}/${totalBatches}`);
     
     for (const recipient of batch) {
       try {
@@ -138,7 +150,7 @@ export const executeTransfer = async (
       }
     }
     
-    logger.info(`Completed batch ${Math.floor(i / batchSize) + 1}`);
+    logger.info(`Completed batch ${currentBatch}/${totalBatches}`);
   }
 
   const completedCount = recipients.filter(r => r.transferred).length;
