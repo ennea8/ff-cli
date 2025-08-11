@@ -3,9 +3,12 @@ dist
 accounts
 
 /logs
-/data
 /out
 /accounts
+
+# Ignore data directory but include template file
+/data/*
+!/data/receivers-template.csv
 
 *.env
 /task*.md
