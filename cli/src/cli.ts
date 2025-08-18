@@ -11,6 +11,32 @@ import { executeTransfer } from './solana-transfer';
 import { executeTokenTransfer } from './token-transfer';
 import { executeBalanceQuery } from './balance-query';
 import { executeBatchTransfer } from './batch-transfer';
+import fs from 'fs';
+import path from 'path';
+
+// Read version from package.json
+const getVersion = (): string => {
+  try {
+    // Try multiple possible paths for package.json
+    const possiblePaths = [
+      path.join(__dirname, '../../package.json'),     // For dev environment (cli/src/)
+      path.join(__dirname, '../package.json'),        // For npm published package (dist/ -> root)
+      path.join(__dirname, '../../../package.json'),  // For local build environment (dist/cli/src/)
+      path.join(process.cwd(), 'package.json')        // Fallback to current working directory
+    ];
+    
+    for (const packageJsonPath of possiblePaths) {
+      if (fs.existsSync(packageJsonPath)) {
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+        return packageJson.version;
+      }
+    }
+    
+    return '0.0.0'; // fallback version if no package.json found
+  } catch (error) {
+    return '0.0.0'; // fallback version
+  }
+};
 
 // One-to-many transfer command (unified SOL and token transfers)
 program
@@ -76,6 +102,6 @@ program
 
 
 program
-  .version('0.0.5')
+  .version(getVersion())
   .description('FF CLI tools for Solana operations')
   .parse();
