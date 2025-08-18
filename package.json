@@ -12,11 +12,11 @@
     "build": "tsc",
     "start": "node dist/cli.js",
     "dev": "pnpx tsx cli/src/cli.ts",
-    "prepare": "npm run build",
-    "prepublishOnly": "npm test",
+    "prepare": "pnpm run build",
+    "prepublishOnly": "pnpm test",
     "version": "git add -A",
     "postversion": "git push && git push --tags",
-    "install-global": "npm link"
+    "install-global": "pnpm link && pnpm link --global"
   },
   "keywords": [
     "solana",
