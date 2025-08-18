@@ -102,6 +102,6 @@ program
 
 
 program
-  .version(getVersion())
+  .version('0.0.9')
   .description('FF CLI tools for Solana operations')
   .parse();
