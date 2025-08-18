@@ -1,17 +1,29 @@
 import fs from 'fs';
 import path from 'path';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { getAccount, getMint } from '@solana/spl-token';
+import { TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 import { createObjectCsvWriter } from 'csv-writer';
 import { logger } from './utils';
 import { readWalletsFromCSV, WalletInfo } from './utils.wallet';
+
+// Interface for token account info
+interface TokenAccountInfo {
+  address: string;
+  balance: number;
+  rawBalance: string;
+  decimals: number;
+  programId: string;
+  state: string;
+}
 
 // Interface for balance result
 interface BalanceResult {
   address: string;
   sol_balance: number;
   token_balance?: number;
+  token_accounts_count?: number;
   token_mint?: string;
+  token_type?: string;
   error?: string;
 }
 
@@ -30,34 +42,84 @@ const querySolBalance = async (
   }
 };
 
-// Query SPL token balance for a single address
+// Query comprehensive token balance for a single address
 const queryTokenBalance = async (
   connection: Connection,
   walletAddress: string,
   mintAddress: string
-): Promise<number> => {
+): Promise<{ balance: number; accountsCount: number; tokenType: string }> => {
   try {
-    const walletPublicKey = new PublicKey(walletAddress);
-    const mintPublicKey = new PublicKey(mintAddress);
+    const owner = new PublicKey(walletAddress);
+    const mint = new PublicKey(mintAddress);
     
-    // Get mint info to determine decimals
-    const mintInfo = await getMint(connection, mintPublicKey);
+    const accounts: TokenAccountInfo[] = [];
+    let tokenType = "SPL Token";
     
-    // Find associated token account
-    const { getAssociatedTokenAddress } = await import('@solana/spl-token');
-    const associatedTokenAddress = await getAssociatedTokenAddress(
-      mintPublicKey,
-      walletPublicKey
-    );
+    // Query SPL Token program accounts
+    logger.info(`Querying SPL Token accounts for ${walletAddress.substring(0, 8)}...`);
+    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(owner, { mint });
     
-    try {
-      const tokenAccount = await getAccount(connection, associatedTokenAddress);
-      const balance = Number(tokenAccount.amount) / Math.pow(10, mintInfo.decimals);
-      return balance;
-    } catch (error) {
-      // Token account doesn't exist, balance is 0
-      return 0;
+    // Process SPL Token results
+    for (const { pubkey, account } of tokenAccounts.value) {
+      const parsedInfo = account.data.parsed.info;
+      const balance = parsedInfo.tokenAmount.uiAmount || 0;
+      const decimals = parsedInfo.tokenAmount.decimals;
+      const rawBalance = parsedInfo.tokenAmount.amount;
+      
+      accounts.push({
+        address: pubkey.toString(),
+        balance,
+        rawBalance,
+        decimals,
+        programId: account.owner.toString(),
+        state: parsedInfo.state,
+      });
     }
+    
+    // Check if this is a Token-2022 mint and query Token-2022 accounts
+    try {
+      const mintInfo = await connection.getAccountInfo(mint);
+      if (mintInfo && mintInfo.owner.equals(TOKEN_2022_PROGRAM_ID)) {
+        tokenType = "Token-2022";
+        logger.info(`Token is Token-2022 type, querying Token-2022 accounts...`);
+        
+        const token2022Accounts = await connection.getParsedTokenAccountsByOwner(owner, { 
+          mint,
+          programId: TOKEN_2022_PROGRAM_ID
+        });
+        
+        // Process Token-2022 results
+        for (const { pubkey, account } of token2022Accounts.value) {
+          const parsedInfo = account.data.parsed.info;
+          const balance = parsedInfo.tokenAmount.uiAmount || 0;
+          const decimals = parsedInfo.tokenAmount.decimals;
+          const rawBalance = parsedInfo.tokenAmount.amount;
+          
+          // Avoid duplicate accounts
+          if (!accounts.some(acc => acc.address === pubkey.toString())) {
+            accounts.push({
+              address: pubkey.toString(),
+              balance,
+              rawBalance,
+              decimals,
+              programId: account.owner.toString(),
+              state: parsedInfo.state,
+            });
+          }
+        }
+      }
+    } catch (error) {
+      logger.warn(`Error checking token type: ${error instanceof Error ? error.message : error}`);
+    }
+    
+    // Calculate total balance
+    const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
+    
+    return {
+      balance: totalBalance,
+      accountsCount: accounts.length,
+      tokenType
+    };
   } catch (error) {
     logger.error(`Failed to query token balance for ${walletAddress}: ${error}`);
     throw error;
@@ -86,7 +148,9 @@ const saveResultsToCSV = async (
     if (mintAddress) {
       headers.push(
         { id: 'token_balance', title: 'Token Balance' },
-        { id: 'token_mint', title: 'Token Mint' }
+        { id: 'token_accounts_count', title: 'Token Accounts Count' },
+        { id: 'token_mint', title: 'Token Mint' },
+        { id: 'token_type', title: 'Token Type' }
       );
     }
 
@@ -136,6 +200,8 @@ export const executeBalanceQuery = async (
     if (mintAddress) {
       result.token_mint = mintAddress;
       result.token_balance = 0;
+      result.token_accounts_count = 0;
+      result.token_type = 'SPL Token';
     }
 
     try {
@@ -145,8 +211,11 @@ export const executeBalanceQuery = async (
 
       // Query token balance if mint address is provided
       if (mintAddress) {
-        result.token_balance = await queryTokenBalance(connection, wallet.address, mintAddress);
-        logger.info(`Token balance: ${result.token_balance}`);
+        const tokenInfo = await queryTokenBalance(connection, wallet.address, mintAddress);
+        result.token_balance = tokenInfo.balance;
+        result.token_accounts_count = tokenInfo.accountsCount;
+        result.token_type = tokenInfo.tokenType;
+        logger.info(`Token balance: ${result.token_balance} (${tokenInfo.accountsCount} accounts, ${tokenInfo.tokenType})`);
       }
     } catch (error) {
       result.error = error instanceof Error ? error.message : String(error);
