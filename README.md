@@ -1,108 +1,257 @@
-# FF CLI Tool
+# FF CLI - Solana Batch Operations Tool
 
-A command-line interface (CLI) tool for batch operations on the Solana blockchain.
+A powerful command-line interface for performing batch operations on the Solana blockchain, including SOL and SPL token transfers, and balance queries.
 
 ## Features
 
-- Batch transfer SOL to multiple recipients
-- Batch transfer SPL tokens to multiple recipients
-- Resumable transfers with progress tracking
-- Configurable batch sizes
-
-## Usage
+- **One-to-Many Transfers**: Send SOL or tokens from one wallet to multiple recipients
+- **Many-to-Many Transfers**: Execute multiple transfers using different source wallets
+- **Balance Queries**: Check SOL and token balances for multiple wallets
+- **Token Support**: Full support for both SPL Token and Token-2022 standards
+- **Atomic Operations**: Account creation and transfers in single transactions
+- **Progress Tracking**: Resumable operations with automatic progress saving
+- **Comprehensive Logging**: Detailed logs and CSV output for all operations
 
 ## Installation
 
+### Global Installation
 ```bash
-pnpm install -g ff-cli
- or 
 npm install -g ff-cli
+# or
+pnpm install -g ff-cli
+```
+
+### Development Setup
+```bash
+git clone <repository-url>
+cd ff-cli
+
+pnpm install
+pnpm run build
+pnpm link .
+pnpm link --global
 
 ```
 
+## Commands Overview
+
+| Command | Description | Use Case |
+|---------|-------------|----------|
+| `transfer-one2many` | Transfer from one wallet to multiple recipients | Airdrops, payouts |
+| `transfer-many2many` | Transfer from multiple wallets using private keys | Complex multi-wallet operations |
+| `balance-query` | Query balances for multiple wallets | Portfolio tracking, auditing |
+
+## Command Reference
+
+### transfer-one2many
+
+Transfer SOL or tokens from one address to multiple recipients.
+
 ```bash
-ff --version
+ff transfer-one2many --keypair <path> --receivers <path> [--mint <address>] [options]
 ```
 
+**Options:**
+- `--keypair <path>`: Path to sender keypair JSON file
+- `--receivers <path>`: Path to CSV file with recipient data
+- `--mint <address>`: Token mint address (optional, defaults to SOL)
+- `--rpc <url>`: Solana RPC endpoint (optional)
+- `--batch-size <number>`: Transfers per batch (default: 1)
 
-### Development
-
-To run commands during development:
-
+**Examples:**
 ```bash
-
 # Transfer SOL to multiple recipients
-pnpm run dev solana-transfer --keypair /path/to/keypair.json --receivers ./data/receivers.csv --batch-size 1
+ff transfer-one2many --keypair sender.json --receivers recipients.csv
 
-# Transfer SPL tokens to multiple recipients
-pnpm run dev token-transfer --keypair /path/to/keypair.json --receivers ./data/receivers.csv --mint TOKEN_MINT_ADDRESS --batch-size 1
+# Transfer tokens to multiple recipients
+ff transfer-one2many --keypair sender.json --receivers recipients.csv --mint EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 ```
 
-### Command Options
+### transfer-many2many
 
-#### SOL Transfer
+Execute many-to-many transfers using wallet private keys and transfer instructions.
 
 ```bash
-ff solana-transfer \
-  --keypair /path/to/keypair.json \
-  --receivers ./data/receivers.csv \
-  --batch-size 5 \
-  --rpc https://api.mainnet-beta.solana.com  # Optional, defaults to SOLANA_RPC_URL env variable
+ff transfer-many2many --wallets <path> --transfers <path> [--mint <address>] [options]
 ```
 
-#### SPL Token Transfer
+**Options:**
+- `--wallets <path>`: Path to CSV file with wallet addresses and private keys
+- `--transfers <path>`: Path to CSV file with transfer instructions
+- `--mint <address>`: Token mint address (optional, defaults to SOL)
+- `--rpc <url>`: Solana RPC endpoint (optional)
+
+**Examples:**
+```bash
+# Multiple SOL transfers
+ff transfer-many2many --wallets wallets.csv --transfers transfers.csv
+
+# Multiple token transfers
+ff transfer-many2many --wallets wallets.csv --transfers transfers.csv --mint EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+```
+
+### balance-query
+
+Query SOL and token balances for multiple wallet addresses.
 
 ```bash
-ff token-transfer \
-  --keypair /path/to/keypair.json \
-  --receivers ./data/receivers.csv \
-  --mint TOKEN_MINT_ADDRESS \
-  --batch-size 5 \
-  --rpc https://api.mainnet-beta.solana.com  # Optional, defaults to SOLANA_RPC_URL env variable
+ff balance-query --wallets <path> [--mint <address>] [options]
 ```
 
-### CSV Format
+**Options:**
+- `--wallets <path>`: Path to CSV file with wallet addresses
+- `--mint <address>`: Token mint address (optional, queries SOL if not provided)
+- `--rpc <url>`: Solana RPC endpoint (optional)
 
-The receivers CSV file should contain the following columns:
+**Examples:**
+```bash
+# Query SOL balances
+ff balance-query --wallets wallets.csv
 
+# Query token balances
+ff balance-query --wallets wallets.csv --mint EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 ```
+
+## CSV File Formats
+
+### Recipients File (for transfer-one2many)
+```csv
 address,amount
-FIRST_ADDRESS,0.01
-SECOND_ADDRESS,0.02
-THIRD_ADDRESS,0.03
+9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM,0.1
+7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU,0.2
+FkkAAddSihN8t6uCorntzpMtBeLjWxiHbHKV5sWDPcEU,0.15
 ```
 
-- For SOL transfers, the amount is in SOL units
-- For token transfers, the amount is in token units
-
-## Building and Installation
-
-### Local Development
-
-To run the CLI during development:
-
-```bash
-pnpm run dev solana-transfer --keypair /path/to/keypair.json --receivers ./data/receivers.csv --batch-size 1
+### Wallets File (for transfer-many2many and balance-query)
+```csv
+address,base58,array
+9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM,5Kj8...base58key...,["array","format"]
+7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU,3Mf9...base58key...,["array","format"]
 ```
 
-### Building the CLI
+### Transfers File (for transfer-many2many)
+```csv
+from,to,amount
+9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM,FkkAAddSihN8t6uCorntzpMtBeLjWxiHbHKV5sWDPcEU,0.1
+7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU,3R5VpUQ63qzceZ4HLgsNLtYN6mrVWoy6S3T9EycCdr3y,0.2
+```
 
-To build the CLI for distribution:
+## Configuration
 
+### Environment Variables
+
+Create a `.env` file in your project directory:
+
+```env
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+SOLANA_KEYPAIR_PATH=/path/to/your/keypair.json
+```
+
+### RPC Endpoints
+
+Common Solana RPC endpoints:
+- **Mainnet**: `https://api.mainnet-beta.solana.com`
+- **Devnet**: `https://api.devnet.solana.com`
+- **Testnet**: `https://api.testnet.solana.com`
+
+## Output and Logging
+
+### Console Output
+All commands provide real-time progress updates and summary tables showing:
+- Transfer status (success/failed)
+- Transaction signatures
+- Error messages
+- Summary statistics
+
+### CSV Output
+Results are automatically saved to the `out/` directory with timestamped filenames:
+- `recipients_balances_2025-01-18.csv`
+- `transfers_batch_transfer_2025-01-18.csv`
+- `transfers_batch_transfer_2025-01-18_token.csv`
+
+### Log Files
+Detailed logs are saved to the `logs/` directory with operation-specific information.
+
+## Progress Tracking
+
+All batch operations support automatic progress tracking:
+- Operations can be safely interrupted and resumed
+- Progress files are saved with `_progress.json` suffix
+- Failed transfers are retried on subsequent runs
+- Completed transfers are skipped automatically
+
+## Token Support
+
+### SPL Token
+Standard SPL tokens are fully supported with automatic:
+- Token account creation
+- Decimal handling
+- Associated token account management
+
+### Token-2022
+Next-generation Token-2022 standard is automatically detected and supported:
+- Automatic program detection
+- Enhanced metadata support
+- Advanced token features
+
+## Error Handling
+
+The CLI includes robust error handling:
+- **Network Issues**: Automatic retries with exponential backoff
+- **Invalid Addresses**: Skipped with detailed warnings
+- **Insufficient Funds**: Clear error messages with balance information
+- **Account Creation**: Automatic handling for non-existent token accounts
+
+## Development
+
+### Running in Development
 ```bash
+# Build the project
+pnpm run build
+
+# Run commands in development
+pnpm run dev transfer-one2many --keypair sender.json --receivers recipients.csv
+
+# Or use tsx directly
+pnpx tsx cli/src/cli.ts transfer-one2many --keypair sender.json --receivers recipients.csv
+```
+
+### Testing
+```bash
+# Run tests
+pnpm test
+
+# Build for production
 pnpm run build
 ```
 
-This will compile the TypeScript code to JavaScript in the `dist` directory.
+## Security Considerations
 
-### Global Installation
+- **Private Keys**: Store keypair files securely and never commit them to version control
+- **RPC Endpoints**: Use trusted RPC providers for production operations
+- **Validation**: All addresses and amounts are validated before processing
+- **Atomic Operations**: Account creation and transfers are performed atomically
 
-To install the CLI globally on your system:
+## Troubleshooting
 
-```bash
-# From the project directory
-pnpm install-global
+### Common Issues
 
-# Now you can run commands directly
-ff solana-transfer --keypair /path/to/keypair.json --receivers ./data/receivers.csv --batch-size 1
-```
+**"Insufficient funds" error:**
+- Check wallet balance with `balance-query` command
+- Ensure enough SOL for transaction fees
+
+**"Invalid address" warnings:**
+- Verify wallet addresses are valid Solana addresses
+- Check for typos in CSV files
+
+**Network timeouts:**
+- Try a different RPC endpoint
+- Reduce batch size for better reliability
+
+**Token account errors:**
+- Token accounts are created automatically
+- Ensure sufficient SOL for account creation fees
+
+## License
+
+ISC
