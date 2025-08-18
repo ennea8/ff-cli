@@ -5,6 +5,7 @@ import { TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 import { createObjectCsvWriter } from 'csv-writer';
 import { logger } from './utils';
 import { readWalletsFromCSV, WalletInfo } from './utils.wallet';
+import chalk from 'chalk';
 
 // Interface for token account info
 interface TokenAccountInfo {
@@ -126,11 +127,21 @@ const queryTokenBalance = async (
   }
 };
 
+// Statistics interface
+interface QueryStatistics {
+  totalWallets: number;
+  successCount: number;
+  errorCount: number;
+  totalSolBalance: number;
+  totalTokenBalance?: number;
+}
+
 // Save results to CSV file
 const saveResultsToCSV = async (
   results: BalanceResult[],
   outputPath: string,
-  mintAddress?: string
+  mintAddress?: string,
+  stats?: QueryStatistics
 ): Promise<void> => {
   try {
     // Ensure output directory exists
@@ -162,11 +173,86 @@ const saveResultsToCSV = async (
     });
 
     await csvWriter.writeRecords(results);
+    
+    // Append statistics as comments to CSV file
+    if (stats) {
+      const statsContent = [
+        '',
+        '# Statistics Summary',
+        `# Total wallets: ${stats.totalWallets}`,
+        `# Successful queries: ${stats.successCount}`,
+        `# Failed queries: ${stats.errorCount}`,
+        `# Total SOL balance: ${stats.totalSolBalance.toFixed(4)}`,
+        ...(stats.totalTokenBalance !== undefined ? [`# Total token balance: ${stats.totalTokenBalance}`] : []),
+        `# Generated at: ${new Date().toISOString()}`
+      ].join('\n');
+      
+      fs.appendFileSync(outputPath, statsContent);
+    }
+    
     logger.info(`Results saved to ${outputPath}`);
   } catch (error) {
     logger.error(`Failed to save results to CSV: ${error}`);
     throw error;
   }
+};
+
+// Display results in table format
+const displayResultsTable = (results: BalanceResult[], mintAddress?: string): void => {
+  console.log(`\n${chalk.cyan('Balance Query Results:')}`);
+  console.log('━'.repeat(120));
+  
+  // Table header
+  const headers = ['Address', 'SOL Balance'];
+  if (mintAddress) {
+    headers.push('Token Balance', 'Token Accounts', 'Token Type');
+  }
+  headers.push('Status');
+  
+  // Print header
+  const headerRow = headers.map((h, i) => {
+    const width = i === 0 ? 44 : (i === headers.length - 1 ? 15 : 15);
+    return h.padEnd(width);
+  }).join(' | ');
+  console.log(chalk.bold(headerRow));
+  console.log('━'.repeat(120));
+  
+  // Print data rows (limit to first 20 for readability)
+  const displayResults = results.slice(0, 20);
+  
+  displayResults.forEach(result => {
+    const row = [];
+    
+    // Address (truncated)
+    row.push(result.address.substring(0, 8) + '...' + result.address.substring(-8));
+    
+    // SOL Balance
+    row.push(result.sol_balance.toFixed(4).padStart(13));
+    
+    if (mintAddress) {
+      // Token Balance
+      row.push((result.token_balance || 0).toString().padStart(13));
+      
+      // Token Accounts Count
+      row.push((result.token_accounts_count || 0).toString().padStart(13));
+      
+      // Token Type
+      const tokenType = result.token_type || 'N/A';
+      row.push(tokenType.substring(0, 13).padEnd(13));
+    }
+    
+    // Status
+    const status = result.error ? chalk.red('Error') : chalk.green('Success');
+    row.push(status);
+    
+    console.log(row.join(' | '));
+  });
+  
+  if (results.length > 20) {
+    console.log(chalk.gray(`... and ${results.length - 20} more results (see CSV file for complete data)`));
+  }
+  
+  console.log('━'.repeat(120));
 };
 
 // Main function to execute balance query
@@ -225,36 +311,45 @@ export const executeBalanceQuery = async (
     results.push(result);
   }
 
-  // Generate output filename
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+  // Generate output filename with complete timestamp
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, -5);
   const baseName = path.basename(walletsPath, path.extname(walletsPath));
   const outputFileName = mintAddress 
     ? `${baseName}_balances_${timestamp}_token.csv`
     : `${baseName}_balances_${timestamp}.csv`;
   const outputPath = path.join(process.cwd(), 'out', outputFileName);
 
-  // Save results to CSV
-  await saveResultsToCSV(results, outputPath, mintAddress);
-
-  // Summary
+  // Calculate statistics
   const successCount = results.filter(r => !r.error).length;
   const errorCount = results.filter(r => r.error).length;
-  
-  logger.info(`Balance query complete:`);
+  const totalSolBalance = results
+    .filter(r => !r.error)
+    .reduce((sum, r) => sum + r.sol_balance, 0);
+  const totalTokenBalance = mintAddress ? results
+    .filter(r => !r.error && r.token_balance)
+    .reduce((sum, r) => sum + (r.token_balance || 0), 0) : 0;
+
+  // Save results to CSV with statistics
+  await saveResultsToCSV(results, outputPath, mintAddress, {
+    totalWallets: results.length,
+    successCount,
+    errorCount,
+    totalSolBalance,
+    totalTokenBalance: mintAddress ? totalTokenBalance : undefined
+  });
+
+  // Display results in table format
+  displayResultsTable(results, mintAddress);
+
+  // Summary
+  logger.info(`\n${chalk.green('Balance query complete:')}`);
   logger.info(`- Total wallets: ${results.length}`);
   logger.info(`- Successful queries: ${successCount}`);
   logger.info(`- Failed queries: ${errorCount}`);
   logger.info(`- Results saved to: ${outputPath}`);
+  logger.info(`- Total SOL balance: ${totalSolBalance.toFixed(4)}`);
 
   if (mintAddress) {
-    const totalTokenBalance = results
-      .filter(r => !r.error && r.token_balance)
-      .reduce((sum, r) => sum + (r.token_balance || 0), 0);
     logger.info(`- Total token balance: ${totalTokenBalance}`);
   }
-
-  const totalSolBalance = results
-    .filter(r => !r.error)
-    .reduce((sum, r) => sum + r.sol_balance, 0);
-  logger.info(`- Total SOL balance: ${totalSolBalance}`);
 };
