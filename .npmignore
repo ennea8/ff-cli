@@ -15,6 +15,7 @@ data/*
 
 # Log files
 logs/
+out/
 
 # Environment files
 .env
