@@ -1,6 +1,6 @@
 {
   "name": "ff-cli",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Solana token batch transfer CLI tool",
   "main": "dist/cli.js",
   "bin": {
@@ -8,6 +8,7 @@
   },
   "scripts": {
     "test": "echo \"No tests specified\" && exit 0",
+    "prebuild": "node scripts/sync-version.js",
     "build": "tsc",
     "start": "node dist/cli.js",
     "dev": "pnpx tsx cli/src/cli.ts",
