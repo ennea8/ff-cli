@@ -10,6 +10,7 @@ dotenv.config();
 import { sayHello } from './hello';
 import { executeTransfer } from './solana-transfer';
 import { executeTokenTransfer } from './token-transfer';
+import { executeBalanceQuery } from './balance-query';
 
 program.command('say-hello')
   .description('Say hello')
@@ -44,6 +45,21 @@ program
   .action((options) => {
     const { keypair, receivers, rpc, mint, batchSize } = options;
     executeTokenTransfer(rpc, keypair, receivers, mint, batchSize);
+  });
+
+// Balance query command
+program
+  .command('balance-query')
+  .description('Query SOL and token balances for a list of wallet addresses')
+  .requiredOption('--wallets <path>', 'Path to CSV file containing wallet addresses')
+  .option('--rpc <url>', 'Solana RPC URL', process.env.SOLANA_RPC_URL)
+  .option('--mint <address>', 'SPL Token mint address to query token balances')
+  .action(async (options) => {
+    await executeBalanceQuery(
+      options.rpc,
+      options.wallets,
+      options.mint
+    );
   });
 
 program
