@@ -1,6 +1,6 @@
 {
   "name": "ff-cli",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Solana token batch transfer CLI tool",
   "main": "dist/cli.js",
   "bin": {
