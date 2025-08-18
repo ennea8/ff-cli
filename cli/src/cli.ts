@@ -7,14 +7,11 @@ const program = new Command();
 // Load environment variables from .env file
 dotenv.config();
 
-import { sayHello } from './hello';
 import { executeTransfer } from './solana-transfer';
 import { executeTokenTransfer } from './token-transfer';
 import { executeBalanceQuery } from './balance-query';
+import { executeBatchTransfer } from './batch-transfer';
 
-program.command('say-hello')
-  .description('Say hello')
-  .action(sayHello);
 
 // Solana transfer command
 program
@@ -58,6 +55,23 @@ program
     await executeBalanceQuery(
       options.rpc,
       options.wallets,
+      options.mint
+    );
+  });
+
+// Batch transfer command
+program
+  .command('batch-transfer')
+  .description('Execute batch transfers using wallet private keys and transfer instructions')
+  .requiredOption('--wallets <path>', 'Path to CSV file containing wallet addresses and private keys (address,base58,array)')
+  .requiredOption('--transfers <path>', 'Path to CSV file containing transfer instructions (from,to,amount)')
+  .option('--rpc <url>', 'Solana RPC URL', process.env.SOLANA_RPC_URL)
+  .option('--mint <address>', 'SPL Token mint address (if not provided, transfers SOL)')
+  .action(async (options) => {
+    await executeBatchTransfer(
+      options.rpc,
+      options.wallets,
+      options.transfers,
       options.mint
     );
   });

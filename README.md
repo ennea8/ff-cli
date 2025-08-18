@@ -21,9 +21,7 @@ npm install -g ff-cli
 ```
 
 ```bash
-## test
 ff --version
-ff say-hello
 ```
 
 
@@ -32,8 +30,6 @@ ff say-hello
 To run commands during development:
 
 ```bash
-# Say hello (basic test command)
-pnpm run dev say-hello
 
 # Transfer SOL to multiple recipients
 pnpm run dev solana-transfer --keypair /path/to/keypair.json --receivers ./data/receivers.csv --batch-size 1
@@ -86,7 +82,6 @@ THIRD_ADDRESS,0.03
 To run the CLI during development:
 
 ```bash
-pnpm run dev say-hello
 pnpm run dev solana-transfer --keypair /path/to/keypair.json --receivers ./data/receivers.csv --batch-size 1
 ```
 
@@ -109,6 +104,5 @@ To install the CLI globally on your system:
 pnpm install-global
 
 # Now you can run commands directly
-ff say-hello
 ff solana-transfer --keypair /path/to/keypair.json --receivers ./data/receivers.csv --batch-size 1
 ```
