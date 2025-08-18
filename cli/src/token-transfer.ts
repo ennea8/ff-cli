@@ -3,17 +3,8 @@ import {
   Connection,
   Keypair,
   PublicKey,
-  Transaction,
-  sendAndConfirmTransaction,
-  TokenBalance,
 } from '@solana/web3.js';
-import {
-  getOrCreateAssociatedTokenAccount,
-  createAssociatedTokenAccountInstruction,
-  getAssociatedTokenAddress,
-  createTransferInstruction,
-  TOKEN_PROGRAM_ID,
-} from '@solana/spl-token';
+import { getAssociatedTokenAddress } from '@solana/spl-token';
 import { logger, getProgressFileName, saveProgress, loadProgress, readRecordsFromCSV, logTransaction, logImportant } from './utils';
 
 // Interface for token recipient record from CSV
@@ -39,7 +30,7 @@ const validateTokenRecipient = (record: any, index: number): TokenRecipientRecor
   };
 };
 
-// Transfer tokens to a single address
+// Transfer tokens to a single address using shared atomic transfer logic
 const transferTokensToAddress = async (
   connection: Connection,
   sender: Keypair,
@@ -49,85 +40,35 @@ const transferTokensToAddress = async (
   logIdentifier: string // Added parameter for consistent logging
 ): Promise<string> => {
   try {
-    const mint = new PublicKey(mintAddress);
-    const recipient = new PublicKey(recipientAddress);
-
-    // Step 1: Get the sender's token account
-    logger.info(`Getting sender token account...`);
-    const senderTokenAccount = await getOrCreateAssociatedTokenAccount(
+    const { executeAtomicTokenTransfer } = await import('./utils.token');
+    
+    // Execute atomic token transfer
+    const result = await executeAtomicTokenTransfer({
       connection,
-      sender,
-      mint,
-      sender.publicKey
-    );
-    logger.info(`Sender token account: ${senderTokenAccount.address.toString()}`);
-
-    // Step 2: Get the recipient token address
-    const recipientTokenAddress = await getAssociatedTokenAddress(
-      mint,
-      recipient
-    );
-    logger.info(`Recipient token address: ${recipientTokenAddress.toString()}`);
-    
-    // Step 3: Check if recipient token account exists
-    const accountInfo = await connection.getAccountInfo(recipientTokenAddress);
-    const accountExists = accountInfo !== null;
-    
-    // Step 4: Create a transaction that will handle both account creation (if needed) and transfer
-    logger.info(`Preparing token transfer of ${amount} tokens to ${recipientAddress}...`);
-    
-    // Create transaction
-    const transaction = new Transaction();
-    
-    // If account doesn't exist, add instruction to create it
-    if (!accountExists) {
-      logger.info(`Recipient account does not exist, will create it in the same transaction`);
-      const createAccountIx = createAssociatedTokenAccountInstruction(
-        sender.publicKey,      // Payer
-        recipientTokenAddress, // Associated token account address
-        recipient,             // Owner
-        mint                   // Mint
-      );
-      transaction.add(createAccountIx);
-    } else {
-      logger.info(`Token account already exists for ${recipientAddress}`);
-    }
-    
-    // Add transfer instruction to the same transaction
-    const transferIx = createTransferInstruction(
-      senderTokenAccount.address,
-      recipientTokenAddress,
-      sender.publicKey,
-      amount,
-      [],
-      TOKEN_PROGRAM_ID
-    );
-    transaction.add(transferIx);
-    
-    // Send and confirm the combined transaction
-    logger.info(`Sending combined transaction (${!accountExists ? 'create account + ' : ''}transfer)...`);
-    const signature = await sendAndConfirmTransaction(
-      connection,
-      transaction,
-      [sender]
-    );
+      fromKeypair: sender,
+      toAddress: recipientAddress,
+      mintAddress,
+      amount
+    });
     
     // Use the consistent log identifier passed from the calling function
     logTransaction(
       logIdentifier,
       `Transaction confirmed`,
-      signature,
+      result.signature,
       {
         type: 'token_transfer',
         sender: sender.publicKey.toString(),
         recipient: recipientAddress,
         amount: amount,
         mint: mintAddress,
-        accountCreated: !accountExists
+        tokenProgram: result.tokenProgram,
+        decimals: result.decimals,
+        accountCreated: result.accountCreated
       }
     );
     
-    return signature;
+    return result.signature;
   } catch (error) {
     logger.error(`Failed to transfer tokens to ${recipientAddress}: ${error}`);
     throw error;

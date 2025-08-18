@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction, LAMPORTS_PER_SOL, Keypair } from '@solana/web3.js';
-import { getOrCreateAssociatedTokenAccount, transfer, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { createObjectCsvWriter } from 'csv-writer';
 import bs58 from 'bs58';
 import { logger } from './utils';
@@ -97,7 +96,7 @@ const executeSolTransfer = async (
   return signature;
 };
 
-// Execute token transfer with support for both SPL Token and Token-2022
+// Execute token transfer using best practice atomic approach
 const executeTokenTransfer = async (
   connection: Connection,
   fromKeypair: Keypair,
@@ -105,66 +104,17 @@ const executeTokenTransfer = async (
   amount: number,
   mintAddress: string
 ): Promise<string> => {
-  const mintPublicKey = new PublicKey(mintAddress);
-  const toPublicKey = new PublicKey(toAddress);
+  const { executeAtomicTokenTransfer } = await import('./utils.token');
   
-  // Determine token program and get mint info
-  let tokenProgramId = TOKEN_PROGRAM_ID;
-  let decimals = 9; // Default decimals
-  
-  try {
-    const mintInfo = await connection.getAccountInfo(mintPublicKey);
-    if (mintInfo && mintInfo.owner.equals(TOKEN_2022_PROGRAM_ID)) {
-      tokenProgramId = TOKEN_2022_PROGRAM_ID;
-      logger.info(`Using Token-2022 program for mint ${mintAddress}`);
-    }
-    
-    // Get mint decimals using parsed account info
-    const parsedMintInfo = await connection.getParsedAccountInfo(mintPublicKey);
-    if (parsedMintInfo.value?.data && 'parsed' in parsedMintInfo.value.data) {
-      decimals = parsedMintInfo.value.data.parsed.info.decimals;
-    }
-  } catch (error) {
-    logger.warn(`Could not determine token program, using default SPL Token: ${error}`);
-  }
-  
-  // Get or create associated token accounts
-  const fromTokenAccount = await getOrCreateAssociatedTokenAccount(
+  const result = await executeAtomicTokenTransfer({
     connection,
     fromKeypair,
-    mintPublicKey,
-    fromKeypair.publicKey,
-    false,
-    undefined,
-    undefined,
-    tokenProgramId
-  );
+    toAddress,
+    mintAddress,
+    amount
+  });
   
-  const toTokenAccount = await getOrCreateAssociatedTokenAccount(
-    connection,
-    fromKeypair,
-    mintPublicKey,
-    toPublicKey,
-    false,
-    undefined,
-    undefined,
-    tokenProgramId
-  );
-  
-  // Execute transfer
-  const signature = await transfer(
-    connection,
-    fromKeypair,
-    fromTokenAccount.address,
-    toTokenAccount.address,
-    fromKeypair,
-    amount * Math.pow(10, decimals),
-    [],
-    undefined,
-    tokenProgramId
-  );
-  
-  return signature;
+  return result.signature;
 };
 
 // Print results table to console
