@@ -11,6 +11,7 @@ import { executeTransfer } from './solana-transfer';
 import { executeTokenTransfer } from './token-transfer';
 import { executeBalanceQuery } from './balance-query';
 import { executeBatchTransfer } from './batch-transfer';
+import { executeFundAllocation } from './fund-allocation';
 import fs from 'fs';
 import path from 'path';
 
@@ -97,6 +98,27 @@ program
       options.rpc,
       options.wallets,
       options.mint
+    );
+  });
+
+// Fund allocation command
+program
+  .command('allocate-funds')
+  .description('Generate fund allocation plan for 1-to-many transfers')
+  .requiredOption('--wallets <path>', 'Path to CSV file containing wallet addresses')
+  .requiredOption('--min <amount>', 'Minimum amount per wallet', (value) => parseFloat(value))
+  .requiredOption('--max <amount>', 'Maximum amount per wallet', (value) => parseFloat(value))
+  .option('--total <amount>', 'Total amount to distribute (optional)', (value) => parseFloat(value))
+  .option('--decimals <places>', 'Number of decimal places for amounts', (value) => parseInt(value, 10), 4)
+  .option('--output <path>', 'Output CSV file path (optional)')
+  .action(async (options) => {
+    await executeFundAllocation(
+      options.wallets,
+      options.min,
+      options.max,
+      options.total,
+      options.decimals,
+      options.output
     );
   });
 
