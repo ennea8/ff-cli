@@ -49,26 +49,15 @@ function allocateFunds(
   
   logger.info(`Allocating funds with min=${minAmount}, max=${maxAmount}, total=${totalAmount || 'unlimited'}`);
   
-  // First pass: Allocate minimum amount to each wallet if possible
-  while (i < wallets.length && remainingAmount >= minAmount) {
-    const wallet = wallets[i];
-    let amount: number;
-    
-    // If we have enough funds for a random allocation between min and max
-    if (remainingAmount >= minAmount) {
-      // Cap the max amount to the remaining funds if totalAmount is specified
-      const effectiveMax = totalAmount ? Math.min(maxAmount, remainingAmount) : maxAmount;
-      
-      // For very small numbers with few decimal places, ensure we don't round to zero
-      // Calculate minimum representable value at the current decimal places
-      const minRepresentable = Math.pow(10, -decimalPlaces);
-      
-      // If min amount is less than what can be represented with current decimal places
-      // adjust it to ensure we don't round to zero
-      const effectiveMin = Math.max(minAmount, minRepresentable);
-      
-      // Generate random amount with specified decimal places
-      amount = getRandomAmount(effectiveMin, effectiveMax, decimalPlaces);
+  // Check if this is a fixed allocation (min == max)
+  const isFixedAllocation = minAmount === maxAmount;
+  
+  if (isFixedAllocation) {
+    logger.info(`Fixed allocation mode: ${minAmount} per wallet`);
+    // Fixed allocation: give exact amount to each wallet
+    while (i < wallets.length && remainingAmount >= minAmount) {
+      const wallet = wallets[i];
+      const amount = minAmount;
       
       // Update remaining amount if totalAmount is specified
       if (totalAmount) {
@@ -79,9 +68,44 @@ function allocateFunds(
         address: wallet.publicKey,
         amount: amount
       });
+      
+      i++;
     }
-    
-    i++;
+  } else {
+    // Variable allocation: random amounts between min and max
+    while (i < wallets.length && remainingAmount >= minAmount) {
+      const wallet = wallets[i];
+      let amount: number;
+      
+      // If we have enough funds for a random allocation between min and max
+      if (remainingAmount >= minAmount) {
+        // Cap the max amount to the remaining funds if totalAmount is specified
+        const effectiveMax = totalAmount ? Math.min(maxAmount, remainingAmount) : maxAmount;
+        
+        // For very small numbers with few decimal places, ensure we don't round to zero
+        // Calculate minimum representable value at the current decimal places
+        const minRepresentable = Math.pow(10, -decimalPlaces);
+        
+        // If min amount is less than what can be represented with current decimal places
+        // adjust it to ensure we don't round to zero
+        const effectiveMin = Math.max(minAmount, minRepresentable);
+        
+        // Generate random amount with specified decimal places
+        amount = getRandomAmount(effectiveMin, effectiveMax, decimalPlaces);
+        
+        // Update remaining amount if totalAmount is specified
+        if (totalAmount) {
+          remainingAmount -= amount;
+        }
+        
+        distribution.push({
+          address: wallet.publicKey,
+          amount: amount
+        });
+      }
+      
+      i++;
+    }
   }
   
   // Log distribution summary
@@ -158,10 +182,15 @@ export const executeFundAllocation = async (
     if (minAmount <= 0) {
       throw new Error('Minimum amount must be greater than 0');
     }
-    if (maxAmount <= minAmount) {
-      throw new Error('Maximum amount must be greater than minimum amount');
+    if (maxAmount < minAmount) {
+      throw new Error('Maximum amount must be greater than or equal to minimum amount');
     }
-    if (totalAmount && totalAmount < minAmount * wallets.length) {
+    // For fixed allocation (min == max), check if total budget is sufficient
+    if (maxAmount === minAmount && totalAmount && totalAmount < minAmount * wallets.length) {
+      throw new Error(`Total amount (${totalAmount}) is insufficient for fixed allocation of ${minAmount} to all ${wallets.length} wallets (requires ${minAmount * wallets.length})`);
+    }
+    // For variable allocation, check minimum requirement
+    if (maxAmount > minAmount && totalAmount && totalAmount < minAmount * wallets.length) {
       throw new Error(`Total amount (${totalAmount}) is insufficient for minimum allocation to all wallets`);
     }
 
