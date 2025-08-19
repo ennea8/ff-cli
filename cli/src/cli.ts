@@ -12,6 +12,7 @@ import { executeTokenTransfer } from './token-transfer';
 import { executeBalanceQuery } from './balance-query';
 import { executeBatchTransfer } from './batch-transfer';
 import { executeFundAllocation } from './fund-allocation';
+import { executeWalletGeneration } from './wallet-generator';
 import fs from 'fs';
 import path from 'path';
 
@@ -118,6 +119,19 @@ program
       options.max,
       options.total,
       options.decimals,
+      options.output
+    );
+  });
+
+// Wallet generation command
+program
+  .command('generate-wallets')
+  .description('Generate random Solana wallets and save to CSV file')
+  .requiredOption('--count <number>', 'Number of wallets to generate', (value) => parseInt(value, 10))
+  .option('--output <path>', 'Output CSV file path (optional)')
+  .action(async (options) => {
+    await executeWalletGeneration(
+      options.count,
       options.output
     );
   });
