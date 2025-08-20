@@ -221,6 +221,7 @@ export async function executeFileEncryption(
           // Use the new path
           if (result.newPath) {
             finalOutputFile = result.newPath;
+            console.log(`Will save to new file: ${finalOutputFile}`);
           }
           break;
           
@@ -301,6 +302,7 @@ export async function executeFileDecryption(
           // Use the new path
           if (result.newPath) {
             finalOutputFile = result.newPath;
+            console.log(`Will save to new file: ${finalOutputFile}`);
           }
           break;
           

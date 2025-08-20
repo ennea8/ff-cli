@@ -142,9 +142,9 @@ program
 program
   .command('encrypt')
   .description('Encrypt a file with password protection')
-  .requiredOption('--input <path>', 'Path to input file to encrypt')
-  .option('--output <path>', 'Path to output encrypted file (defaults to input path + .encrypted)')
-  .option('--password <string>', 'Password for encryption (if not provided, will prompt)')
+  .requiredOption('-i, --input <path>', 'Path to input file to encrypt')
+  .option('-o, --output <path>', 'Path to output encrypted file (defaults to input path + .encrypted)')
+  .option('-p, --password <string>', 'Password for encryption (if not provided, will prompt)')
   .action(async (options) => {
     await executeFileEncryption(
       options.input,
@@ -157,9 +157,9 @@ program
 program
   .command('decrypt')
   .description('Decrypt an encrypted file')
-  .requiredOption('--input <path>', 'Path to encrypted input file')
-  .option('--output <path>', 'Path to output decrypted file (defaults to input path without .encrypted extension)')
-  .option('--password <string>', 'Password for decryption (if not provided, will prompt)')
+  .requiredOption('-i, --input <path>', 'Path to encrypted input file')
+  .option('-o, --output <path>', 'Path to output decrypted file (defaults to input path without .encrypted extension)')
+  .option('-p, --password <string>', 'Password for decryption (if not provided, will prompt)')
   .action(async (options) => {
     await executeFileDecryption(
       options.input,
