@@ -13,6 +13,7 @@ import { executeBalanceQuery } from './balance-query';
 import { executeBatchTransfer } from './batch-transfer';
 import { executeFundAllocation } from './fund-allocation';
 import { executeWalletGeneration } from './wallet-generator';
+import { executeFileEncryption, executeFileDecryption } from './file-crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -136,6 +137,36 @@ program
     );
   });
 
+
+// File encryption command
+program
+  .command('encrypt')
+  .description('Encrypt a file with password protection')
+  .requiredOption('--input <path>', 'Path to input file to encrypt')
+  .option('--output <path>', 'Path to output encrypted file (defaults to input path + .encrypted)')
+  .option('--password <string>', 'Password for encryption (if not provided, will prompt)')
+  .action(async (options) => {
+    await executeFileEncryption(
+      options.input,
+      options.output,
+      options.password
+    );
+  });
+
+// File decryption command
+program
+  .command('decrypt')
+  .description('Decrypt an encrypted file')
+  .requiredOption('--input <path>', 'Path to encrypted input file')
+  .option('--output <path>', 'Path to output decrypted file (defaults to input path without .encrypted extension)')
+  .option('--password <string>', 'Password for decryption (if not provided, will prompt)')
+  .action(async (options) => {
+    await executeFileDecryption(
+      options.input,
+      options.output,
+      options.password
+    );
+  });
 
 program
   .version(getVersion())

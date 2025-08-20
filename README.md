@@ -7,6 +7,7 @@ A powerful command-line interface for performing batch operations on the Solana 
 - **One-to-Many Transfers**: Send SOL or tokens from one wallet to multiple recipients
 - **Many-to-Many Transfers**: Execute multiple transfers using different source wallets
 - **Balance Queries**: Check SOL and token balances for multiple wallets
+- **File Encryption/Decryption**: Password-protected file encryption and decryption
 - **Token Support**: Full support for both SPL Token and Token-2022 standards
 - **Atomic Operations**: Account creation and transfers in single transactions
 - **Progress Tracking**: Resumable operations with automatic progress saving
@@ -40,8 +41,65 @@ pnpm link --global
 | `transfer-one2many` | Transfer from one wallet to multiple recipients | Airdrops, payouts |
 | `transfer-many2many` | Transfer from multiple wallets using private keys | Complex multi-wallet operations |
 | `balance-query` | Query balances for multiple wallets | Portfolio tracking, auditing |
+| `encrypt` | Encrypt a file with password protection | Securing sensitive data |
+| `decrypt` | Decrypt a previously encrypted file | Accessing secured data |
 
 ## Command Reference
+
+### encrypt
+
+Encrypt a file with password protection.
+
+```bash
+ff encrypt --input <path> [--output <path>] [--password <string>]
+```
+
+**Options:**
+- `--input <path>`: Path to input file to encrypt
+- `--output <path>`: Path to output encrypted file (defaults to input path + .encrypted)
+- `--password <string>`: Password for encryption (if not provided, will prompt)
+
+**Examples:**
+```bash
+# Encrypt a file (will prompt for password)
+ff encrypt --input sensitive_data.json
+
+# Encrypt with password provided directly
+ff encrypt --input sensitive_data.json --password mySecurePassword123 --output encrypted_data
+```
+
+**Security Features:**
+- Secure password masking in terminal
+- File overwrite confirmation to prevent accidental data loss
+- Strong AES-256-GCM encryption with authentication
+- PBKDF2 key derivation with 100,000 iterations
+
+### decrypt
+
+Decrypt a previously encrypted file.
+
+```bash
+ff decrypt --input <path> [--output <path>] [--password <string>]
+```
+
+**Options:**
+- `--input <path>`: Path to encrypted input file
+- `--output <path>`: Path to output decrypted file (defaults to input path without .encrypted extension)
+- `--password <string>`: Password for decryption (if not provided, will prompt)
+
+**Examples:**
+```bash
+# Decrypt a file (will prompt for password)
+ff decrypt --input sensitive_data.json.encrypted
+
+# Decrypt with password provided directly
+ff decrypt --input sensitive_data.json.encrypted --password mySecurePassword123 --output decrypted_data.json
+```
+
+**Security Features:**
+- Secure password masking in terminal
+- File overwrite confirmation to prevent accidental data loss
+- Automatic detection and handling of encrypted file format
 
 ### transfer-one2many
 

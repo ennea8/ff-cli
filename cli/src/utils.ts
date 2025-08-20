@@ -120,7 +120,156 @@ export const loadProgress = <T>(progressFile: string): T | null => {
   return null;
 };
 
-// Read records from CSV file
+/**
+ * Prompt the user for confirmation before overwriting an existing file
+ * @param filePath Path to the file that would be overwritten
+ * @returns Promise that resolves to true if user confirms, false otherwise
+ */
+// Track if we've already shown a confirmation to prevent duplicates
+let confirmationShown = false;
+
+/**
+ * Represents the outcome of file conflict resolution
+ */
+export enum FileConflictResolution {
+  OVERWRITE = 'overwrite',  // Replace the existing file
+  RENAME = 'rename',        // Create a new file with a different name
+  CANCEL = 'cancel',        // Cancel the operation
+  COMPARE = 'compare'       // Show information about both files
+}
+
+/**
+ * Get file stats in a human-readable format
+ * @param filePath Path to the file
+ * @returns Object with human-readable file information
+ */
+const getFileInfo = (filePath: string) => {
+  try {
+    const stats = fs.statSync(filePath);
+    const sizeInBytes = stats.size;
+    let sizeStr;
+    
+    if (sizeInBytes < 1024) {
+      sizeStr = `${sizeInBytes} B`;
+    } else if (sizeInBytes < 1024 * 1024) {
+      sizeStr = `${(sizeInBytes / 1024).toFixed(1)} KB`;
+    } else {
+      sizeStr = `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    
+    return {
+      size: sizeStr,
+      modified: stats.mtime.toLocaleString(),
+    };
+  } catch (error) {
+    return { size: 'unknown', modified: 'unknown' };
+  }
+};
+
+/**
+ * Generate a unique filename by appending a number
+ * @param filePath Original file path
+ * @returns New unique file path
+ */
+const generateUniqueFilename = (filePath: string): string => {
+  const dir = path.dirname(filePath);
+  const ext = path.extname(filePath);
+  const baseName = path.basename(filePath, ext);
+  let counter = 1;
+  let newPath = `${dir}/${baseName} (${counter})${ext}`;
+  
+  while (fs.existsSync(newPath)) {
+    counter++;
+    newPath = `${dir}/${baseName} (${counter})${ext}`;
+  }
+  
+  return newPath;
+};
+
+/**
+ * Result of file conflict resolution
+ */
+export interface FileConflictResult {
+  action: FileConflictResolution;
+  newPath?: string;
+}
+
+/**
+ * Handle file conflict resolution with multiple options
+ * @param filePath Path to the file that would be overwritten
+ * @returns Promise that resolves to a FileConflictResult object
+ */
+export const resolveFileConflict = async (filePath: string): Promise<FileConflictResult> => {
+  if (!fs.existsSync(filePath)) {
+    return { action: FileConflictResolution.OVERWRITE }; // No conflict
+  }
+  
+  // If we've already shown a confirmation in this process, just overwrite
+  if (confirmationShown) {
+    return { action: FileConflictResolution.OVERWRITE };
+  }
+  
+  // Get info about existing file
+  const fileInfo = getFileInfo(filePath);
+  
+  return new Promise((resolve) => {
+    // Use a separate instance of readline to avoid conflicts
+    const readline = require('readline').createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+    
+    // Show file info and options
+    console.log(`\n>> File conflict: '${filePath}' already exists:`);
+    console.log(`   - Size: ${fileInfo.size}`);
+    console.log(`   - Last modified: ${fileInfo.modified}`);
+    console.log('\nOptions:');
+    console.log('   1. Overwrite the existing file');
+    console.log('   2. Save to a new file with auto-generated name');
+    console.log('   3. Cancel operation');
+    
+    readline.question('\n>> Choose an option (1-3) [3]: ', (answer: string) => {
+      readline.close();
+      confirmationShown = true;
+      
+      // Process the user's choice
+      setTimeout(() => {
+        const choice = answer.trim();
+        
+        switch (choice) {
+          case '1':
+            // Overwrite
+            console.log(`Overwriting file: ${filePath}`);
+            resolve({ action: FileConflictResolution.OVERWRITE });
+            break;
+            
+          case '2':
+            // Rename - generate new path and return it
+            const newPath = generateUniqueFilename(filePath);
+            console.log(`Saving to: ${newPath}`);
+            resolve({ action: FileConflictResolution.RENAME, newPath });
+            break;
+            
+          default:
+            // Cancel
+            console.log('Operation cancelled.');
+            resolve({ action: FileConflictResolution.CANCEL });
+        }
+      }, 100);
+    });
+  });
+};
+
+/**
+ * Legacy compatibility function for backwards compatibility
+ * @param filePath Path to check
+ * @returns Promise resolving to boolean
+ */
+export const confirmFileOverwrite = async (filePath: string): Promise<boolean> => {
+  const result = await resolveFileConflict(filePath);
+  return result.action === FileConflictResolution.OVERWRITE;
+};
+
 export const readRecordsFromCSV = <T>(
   csvFile: string,
   validator?: (record: any, index: number) => T
