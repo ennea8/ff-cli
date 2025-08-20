@@ -166,26 +166,13 @@ export const executeTokenTransfer = async (
       logger.info(`[${start + i + 1}/${pendingRecipients.length}] Transferring ${recipient.amount} tokens to ${recipient.address}`);
       
       try {
-        // Convert amount string to correct decimal representation for token transfer
-        // SPL tokens typically use 9 decimal places (10^9 precision)
-        const DECIMALS = 9;
-        const PRECISION = Math.pow(10, DECIMALS);
-        
-        // Parse as float first to handle decimal values, then multiply by precision
-        const parsedAmount = parseFloat(recipient.amount);
-        if (isNaN(parsedAmount)) {
-          throw new Error(`Invalid amount format: ${recipient.amount}`);
-        }
-        
-        // Convert to token's smallest unit by multiplying by 10^9
-        const amount = Math.round(parsedAmount * PRECISION);
 
         const signature = await transferTokensToAddress(
           connection,
           sender,
           recipient.address,
           mintAddress,
-          amount,
+          parseFloat(recipient.amount),
           receiversPath // Pass the receiversPath as log identifier
         );
         
@@ -197,7 +184,7 @@ export const executeTokenTransfer = async (
             type: 'batch_progress',
             signature: signature,
             recipient: recipient.address,
-            amount: amount,
+            amount: parseFloat(recipient.amount),
             current: i + 1,
             total: pendingRecipients.length,
             batchNumber: batchIndex + 1,
