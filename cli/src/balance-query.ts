@@ -5,7 +5,6 @@ import { TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 import { createObjectCsvWriter } from 'csv-writer';
 import { logger } from './utils';
 import { readWalletsFromCSV, WalletInfo } from './utils.wallet';
-import chalk from 'chalk';
 
 // Interface for token account info
 interface TokenAccountInfo {
@@ -199,7 +198,7 @@ const saveResultsToCSV = async (
 
 // Display results in table format
 const displayResultsTable = (results: BalanceResult[], mintAddress?: string): void => {
-  console.log(`\n${chalk.cyan('Balance Query Results:')}`);
+  console.log(`\n${'Balance Query Results:'}`);
   console.log('━'.repeat(120));
   
   // Table header
@@ -214,7 +213,7 @@ const displayResultsTable = (results: BalanceResult[], mintAddress?: string): vo
     const width = i === 0 ? 44 : (i === headers.length - 1 ? 15 : 15);
     return h.padEnd(width);
   }).join(' | ');
-  console.log(chalk.bold(headerRow));
+  console.log(headerRow);
   console.log('━'.repeat(120));
   
   // Print data rows (limit to first 20 for readability)
@@ -242,14 +241,14 @@ const displayResultsTable = (results: BalanceResult[], mintAddress?: string): vo
     }
     
     // Status
-    const status = result.error ? chalk.red('Error') : chalk.green('Success');
+    const status = result.error ? 'Error' : 'Success';
     row.push(status);
     
     console.log(row.join(' | '));
   });
   
   if (results.length > 20) {
-    console.log(chalk.gray(`... and ${results.length - 20} more results (see CSV file for complete data)`));
+    console.log(`... and ${results.length - 20} more results (see CSV file for complete data)`);
   }
   
   console.log('━'.repeat(120));
@@ -342,7 +341,6 @@ export const executeBalanceQuery = async (
   displayResultsTable(results, mintAddress);
 
   // Summary
-  logger.info(`\n${chalk.green('Balance query complete:')}`);
   logger.info(`- Total wallets: ${results.length}`);
   logger.info(`- Successful queries: ${successCount}`);
   logger.info(`- Failed queries: ${errorCount}`);

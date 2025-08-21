@@ -17,9 +17,6 @@ importers:
       bs58:
         specifier: ^6.0.0
         version: 6.0.0
-      chalk:
-        specifier: ^5.5.0
-        version: 5.5.0
       commander:
         specifier: ^14.0.0
         version: 14.0.0
