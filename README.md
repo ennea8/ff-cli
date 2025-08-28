@@ -315,6 +315,72 @@ pnpm test
 pnpm run build
 ```
 
+### key-pub
+
+Display public key derived from a private key.
+
+```bash
+ff key-pub [--key-bs58 <string> | --key-array-file <path>] [--output <path>]
+```
+
+**Options:**
+- `--key-bs58 <string>`: Private key in base58 format
+- `--key-array-file <path>`: Path to file containing private key in array format
+- `--output <path>`: Write output to file instead of console (optional)
+
+**Examples:**
+```bash
+# Get public key from base58 private key
+ff key-pub --key-bs58 5DtSe8Zo4U9K93RcXLXSYzjnEXGMi7wKEpiLRZtpEq8fZfCQcS9YZ8PpnQMRNXC6iL9NUJQD5Q3z2sY3mwTUefSD
+
+# Get public key from array format file
+ff key-pub --key-array-file ./my-key.json
+```
+
+### key-bs58
+
+Convert array format key to base58 string.
+
+```bash
+ff key-bs58 [--key-array <string> | --key-array-file <path>] [--output <path>]
+```
+
+**Options:**
+- `--key-array <string>`: Array format key as a string
+- `--key-array-file <path>`: Path to file containing array format key
+- `--output <path>`: Write output to file instead of console (optional)
+
+**Examples:**
+```bash
+# Convert array format string to base58
+ff key-bs58 --key-array '[149,161,101,152,103,30,78,176,39,3,210,224,30,152,14,55,109,128,146,80,56,226,233,151,105,247,129,116,52,228,198,197,41,60,141,115,124,85,38,114,222,186,119,97,217,233,165,208,32,154,2,68,65,107,46,104,219,96,196,200,195,165]'
+
+# Convert array format file to base58
+ff key-bs58 --key-array-file ./my-key-array.json
+```
+
+### key-array
+
+Convert base58 string to array format key for file storage.
+
+```bash
+ff key-array [--key-bs58 <string> | --key-bs58-file <path>] [--output <path>]
+```
+
+**Options:**
+- `--key-bs58 <string>`: Base58 format key string
+- `--key-bs58-file <path>`: Path to file containing base58 format key
+- `--output <path>`: Write output to file instead of console (optional)
+
+**Examples:**
+```bash
+# Convert base58 string to array format
+ff key-array --key-bs58 5DtSe8Zo4U9K93RcXLXSYzjnEXGMi7wKEpiLRZtpEq8fZfCQcS9YZ8PpnQMRNXC6iL9NUJQD5Q3z2sY3mwTUefSD
+
+# Convert base58 key file to array format
+ff key-array --key-bs58-file ./my-key-bs58.txt
+```
+
 ## Security Considerations
 
 - **Private Keys**: Store keypair files securely and never commit them to version control
