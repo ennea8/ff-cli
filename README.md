@@ -47,8 +47,12 @@ npm link
 | `transfer-one2many` | Transfer from one wallet to multiple recipients | Airdrops, payouts |
 | `transfer-many2many` | Transfer from multiple wallets using private keys | Complex multi-wallet operations |
 | `balance-query` | Query balances for multiple wallets | Portfolio tracking, auditing |
+| `balance` | Query balance for a specific address | Quick account checks |
 | `encrypt` | Encrypt a file with password protection | Securing sensitive data |
 | `decrypt` | Decrypt a previously encrypted file | Accessing secured data |
+| `key-pub` | Display public key from a private key | Key verification, address lookup |
+| `key-bs58` | Convert array format key to base58 | Key format conversion |
+| `key-array` | Convert base58 key to array format | Secure key storage format |
 
 ## Command Reference
 
@@ -174,6 +178,28 @@ ff balance-query --wallets wallets.csv
 
 # Query token balances
 ff balance-query --wallets wallets.csv --mint EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+```
+
+### balance
+
+Query SOL and token balance for a single wallet address.
+
+```bash
+ff balance --address <string> [--mint <address>] [options]
+```
+
+**Options:**
+- `--address <string>`: Wallet address to query balance for
+- `--mint <address>`: Token mint address (optional, queries SOL if not provided)
+- `--rpc <url>`: Solana RPC endpoint (optional)
+
+**Examples:**
+```bash
+# Query SOL balance for a specific address
+ff balance --address 5bqHcM1Qkqb1W8qiMnoYEn7FRknogZQcGXNZJZQX8q4v
+
+# Query token balance for a specific address
+ff balance --address 5bqHcM1Qkqb1W8qiMnoYEn7FRknogZQcGXNZJZQX8q4v --mint EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 ```
 
 ## CSV File Formats
