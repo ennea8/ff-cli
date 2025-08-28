@@ -14,6 +14,7 @@ import { executeBatchTransfer } from './batch-transfer';
 import { executeFundAllocation } from './fund-allocation';
 import { executeWalletGeneration } from './wallet-generator';
 import { executeFileEncryption, executeFileDecryption } from './file-crypto';
+import { executeKeyCommand } from './key-utils';
 import fs from 'fs';
 import path from 'path';
 
@@ -165,6 +166,66 @@ program
       options.input,
       options.output,
       options.password
+    );
+  });
+
+// Key pub command - get public key from private key
+program
+  .command('key-pub')
+  .description('Display public key derived from a private key')
+  .option('-k, --key-bs58 <string>', 'Private key string (base58 or array format)')
+  .option('-f, --key-array-file <path>', 'Path to file containing the private key')
+  .option('-o, --output <path>', 'Write output to file instead of console')
+  .action(async (options) => {
+    if (!options.keyBs58 && !options.keyArrayFile) {
+      console.error('Error: Either --key-bs58 or --key-array-file must be provided');
+      process.exit(1);
+    }
+    await executeKeyCommand(
+      'pub',
+      options.keyBs58 || options.keyArrayFile,
+      options.keyArrayFile ? true : false,
+      options.output
+    );
+  });
+
+// Key bs58 command - convert array to base58
+program
+  .command('key-bs58')
+  .description('Convert array format key to base58 string')
+  .option('-k, --key-array <string>', 'Array format key string')
+  .option('-f, --key-array-file <path>', 'Path to file containing array format key')
+  .option('-o, --output <path>', 'Write output to file instead of console')
+  .action(async (options) => {
+    if (!options.keyArray && !options.keyArrayFile) {
+      console.error('Error: Either --key-array or --key-array-file must be provided');
+      process.exit(1);
+    }
+    await executeKeyCommand(
+      'bs58',
+      options.keyArray || options.keyArrayFile,
+      options.keyArrayFile ? true : false,
+      options.output
+    );
+  });
+
+// Key array command - convert base58 to array format
+program
+  .command('key-array')
+  .description('Convert base58 string to array format key for file storage')
+  .option('-k, --key-bs58 <string>', 'Base58 format key string')
+  .option('-f, --key-bs58-file <path>', 'Path to file containing base58 format key')
+  .option('-o, --output <path>', 'Write output to file instead of console')
+  .action(async (options) => {
+    if (!options.keyBs58 && !options.keyBs58File) {
+      console.error('Error: Either --key-bs58 or --key-bs58-file must be provided');
+      process.exit(1);
+    }
+    await executeKeyCommand(
+      'array',
+      options.keyBs58 || options.keyBs58File,
+      options.keyBs58File ? true : false,
+      options.output
     );
   });
 
