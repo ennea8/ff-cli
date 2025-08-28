@@ -27,12 +27,18 @@ pnpm install -g ff-cli
 git clone <repository-url>
 cd ff-cli
 
+# for pnpm
 pnpm install
 pnpm run build
 pnpm link .
 pnpm link --global
 
+# for npm
+npm install
+npm run build
+npm link
 ```
+
 
 ## Commands Overview
 
