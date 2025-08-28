@@ -15,6 +15,7 @@ import { executeFundAllocation } from './fund-allocation';
 import { executeWalletGeneration } from './wallet-generator';
 import { executeFileEncryption, executeFileDecryption } from './file-crypto';
 import { executeKeyCommand } from './key-utils';
+import { executeBalance } from './balance';
 import fs from 'fs';
 import path from 'path';
 
@@ -226,6 +227,21 @@ program
       options.keyBs58 || options.keyBs58File,
       options.keyBs58File ? true : false,
       options.output
+    );
+  });
+
+// Balance command for a single address
+program
+  .command('balance')
+  .description('Query SOL and token balance for a specific address')
+  .requiredOption('--address <string>', 'Wallet address to query balance for')
+  .option('--rpc <url>', 'Solana RPC URL', process.env.SOLANA_RPC_URL)
+  .option('--mint <address>', 'SPL Token mint address to query token balance')
+  .action(async (options) => {
+    await executeBalance(
+      options.rpc,
+      options.address,
+      options.mint
     );
   });
 
