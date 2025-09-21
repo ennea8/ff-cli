@@ -48,6 +48,7 @@ npm link
 | `transfer-many2many` | Transfer from multiple wallets using private keys | Complex multi-wallet operations |
 | `balance-query` | Query balances for multiple wallets | Portfolio tracking, auditing |
 | `balance` | Query balance for a specific address | Quick account checks |
+| `drain-wallet` | Transfer all assets and close accounts | Wallet migration, consolidation |
 | `encrypt` | Encrypt a file with password protection | Securing sensitive data |
 | `decrypt` | Decrypt a previously encrypted file | Accessing secured data |
 | `key-pub` | Display public key from a private key | Key verification, address lookup |
@@ -201,6 +202,67 @@ ff balance --address 5bqHcM1Qkqb1W8qiMnoYEn7FRknogZQcGXNZJZQX8q4v
 # Query token balance for a specific address
 ff balance --address 5bqHcM1Qkqb1W8qiMnoYEn7FRknogZQcGXNZJZQX8q4v --mint EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 ```
+
+### drain-wallet
+
+Transfer all assets from one wallet to another and close accounts to reclaim rent.
+
+```bash
+ff drain-wallet [--from-key-file <path> | --from-key-bs58 <string>] --to <address> [options]
+```
+
+**Options:**
+- `--from-key-file <path>`: Path to source wallet keypair file (array format)
+- `--from-key-bs58 <string>`: Source wallet private key in base58 format
+- `--to <address>`: Destination wallet address
+- `--rpc <url>`: Solana RPC URL (optional)
+- `--dry-run`: Simulate the operation without executing transfers
+- `--no-close-accounts`: Skip closing token accounts
+- `--no-reclaim-rent`: Skip rent reclamation
+- `--keep-sol <amount>`: Amount of SOL to keep in source wallet (default: 0)
+- `--tokens <list>`: Comma-separated list of specific token mints to transfer
+- `--exclude-tokens <list>`: Comma-separated list of token mints to exclude
+- `--min-balance <amount>`: Minimum token balance to transfer (skip dust)
+
+**Examples:**
+```bash
+# Drain wallet using keypair file
+ff drain-wallet --from-key-file source-wallet.json --to DEST_ADDRESS
+
+# Drain wallet using base58 private key
+ff drain-wallet --from-key-bs58 "5DtSe8Zo4U9K93RcXLXSYzjnEXGMi7wKEpiLRZtpEq8fZfCQcS9YZ8PpnQMRNXC6iL9NUJQD5Q3z2sY3mwTUefSD" --to DEST_ADDRESS
+
+# Dry run to preview what will be transferred
+ff drain-wallet --from-key-file wallet.json --to DEST_ADDRESS --dry-run
+
+# Keep some SOL in source wallet
+ff drain-wallet --from-key-file wallet.json --to DEST_ADDRESS --keep-sol 0.1
+
+# Transfer only specific tokens
+ff drain-wallet --from-key-file wallet.json --to DEST_ADDRESS --tokens "MINT1,MINT2"
+
+# Exclude specific tokens from transfer
+ff drain-wallet --from-key-file wallet.json --to DEST_ADDRESS --exclude-tokens "DUST_TOKEN"
+
+# Set minimum balance threshold to skip dust
+ff drain-wallet --from-key-file wallet.json --to DEST_ADDRESS --min-balance 0.001
+```
+
+**Features:**
+- **Asset Discovery**: Automatically finds all SOL and token balances
+- **WSOL Unwrapping**: Converts wrapped SOL back to native SOL
+- **Token Transfer**: Transfers all tokens to destination wallet
+- **Account Closure**: Closes empty token accounts to reclaim rent
+- **Rent Reclamation**: Recovers ~0.002 SOL per closed token account
+- **Progress Tracking**: Real-time updates and detailed logging
+- **CSV Output**: Saves operation results to timestamped CSV file
+- **Error Recovery**: Continues operation even if some transfers fail
+
+**Security Features:**
+- **Dry Run Mode**: Preview operations without executing
+- **Key Format Support**: Works with both file and string key formats
+- **Validation**: Validates all addresses and amounts before processing
+- **Confirmation**: Shows detailed preview before executing transfers
 
 ## CSV File Formats
 

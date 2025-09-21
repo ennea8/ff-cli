@@ -16,6 +16,7 @@ import { executeWalletGeneration } from './wallet-generator';
 import { executeFileEncryption, executeFileDecryption } from './file-crypto';
 import { executeKeyCommand } from './key-utils';
 import { executeBalance } from './balance';
+import { executeDrainWallet } from './drain-wallet';
 import fs from 'fs';
 import path from 'path';
 
@@ -242,6 +243,52 @@ program
       options.rpc,
       options.address,
       options.mint
+    );
+  });
+
+// Drain wallet command - transfer all assets and close accounts
+program
+  .command('drain-wallet')
+  .description('Transfer all assets from one wallet to another and close accounts to reclaim rent')
+  .option('--from-key-file <path>', 'Path to source wallet keypair file (array format)')
+  .option('--from-key-bs58 <string>', 'Source wallet private key in base58 format')
+  .requiredOption('--to <address>', 'Destination wallet address')
+  .option('--rpc <url>', 'Solana RPC URL', process.env.SOLANA_RPC_URL)
+  .option('--dry-run', 'Simulate the operation without executing transfers', false)
+  .option('--no-close-accounts', 'Skip closing token accounts')
+  .option('--no-reclaim-rent', 'Skip rent reclamation')
+  .option('--keep-sol <amount>', 'Amount of SOL to keep in source wallet', (value) => parseFloat(value), 0)
+  .option('--tokens <list>', 'Comma-separated list of specific token mints to transfer')
+  .option('--exclude-tokens <list>', 'Comma-separated list of token mints to exclude from transfer')
+  .option('--min-balance <amount>', 'Minimum token balance to transfer (skip dust)', (value) => parseFloat(value), 0)
+  .action(async (options) => {
+    if (!options.fromKeyFile && !options.fromKeyBs58) {
+      console.error('Error: Either --from-key-file or --from-key-bs58 must be provided');
+      process.exit(1);
+    }
+    
+    if (options.fromKeyFile && options.fromKeyBs58) {
+      console.error('Error: Cannot provide both --from-key-file and --from-key-bs58');
+      process.exit(1);
+    }
+
+    const tokens = options.tokens ? options.tokens.split(',').map((t: string) => t.trim()) : undefined;
+    const excludeTokens = options.excludeTokens ? options.excludeTokens.split(',').map((t: string) => t.trim()) : undefined;
+    
+    await executeDrainWallet(
+      options.rpc,
+      options.fromKeyFile,
+      options.fromKeyBs58,
+      options.to,
+      {
+        dryRun: options.dryRun,
+        closeAccounts: options.closeAccounts,
+        reclaimRent: options.reclaimRent,
+        keepSol: options.keepSol,
+        tokens,
+        excludeTokens,
+        minBalance: options.minBalance,
+      }
     );
   });
 
