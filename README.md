@@ -7,6 +7,7 @@ A powerful command-line interface for performing batch operations on the Solana 
 - **One-to-Many Transfers**: Send SOL or tokens from one wallet to multiple recipients
 - **Many-to-Many Transfers**: Execute multiple transfers using different source wallets
 - **Balance Queries**: Check SOL and token balances for multiple wallets
+- **SOL Wrap/Unwrap**: Convert between native SOL and wSOL for DeFi applications
 - **File Encryption/Decryption**: Password-protected file encryption and decryption
 - **Token Support**: Full support for both SPL Token and Token-2022 standards
 - **Atomic Operations**: Account creation and transfers in single transactions
@@ -49,6 +50,9 @@ npm link
 | `balance-query` | Query balances for multiple wallets | Portfolio tracking, auditing |
 | `balance` | Query balance for a specific address | Quick account checks |
 | `drain-wallet` | Transfer all assets and close accounts | Wallet migration, consolidation |
+| `sol-wrap-unwrap` | Wrap SOL to wSOL or unwrap wSOL to SOL | Liquidity management |
+| `wrap-sol` | Wrap SOL to wSOL | DeFi preparation |
+| `unwrap-sol` | Unwrap wSOL to SOL | Converting back to native SOL |
 | `encrypt` | Encrypt a file with password protection | Securing sensitive data |
 | `decrypt` | Decrypt a previously encrypted file | Accessing secured data |
 | `key-pub` | Display public key from a private key | Key verification, address lookup |
@@ -469,6 +473,99 @@ ff key-array --key-bs58-file ./my-key-bs58.txt
 **Token account errors:**
 - Token accounts are created automatically
 - Ensure sufficient SOL for account creation fees
+
+### sol-wrap-unwrap
+
+Wrap SOL to wSOL or unwrap wSOL to SOL.
+
+```bash
+ff sol-wrap-unwrap [--from-key-file <path> | --from-key-bs58 <string> | --key-array-file <path> | --key-bs58 <string>] [--wallets <path>] [--action <action>] [options]
+```
+
+**Options:**
+- `--from-key-file <path>`: Path to source wallet keypair file (array format)
+- `--from-key-bs58 <string>`: Source wallet private key in base58 format
+- `--key-array-file <path>`: Alias for --from-key-file
+- `--key-bs58 <string>`: Alias for --from-key-bs58
+- `--wallets <path>`: Path to CSV file containing wallet addresses and private keys (address,base58,array)
+- `--action <action>`: Action to perform: wrap (SOL to wSOL) or unwrap (wSOL to SOL), default: wrap
+- `--amount <sol>`: Amount of SOL to wrap/unwrap (applies only to single wallet)
+- `--min-sol-balance <sol>`: Minimum SOL balance to keep when wrapping, default: 0.02
+- `--rpc <url>`: Solana RPC URL (optional)
+
+**Examples:**
+```bash
+# Wrap SOL to wSOL, keeping 0.02 SOL as minimum balance
+ff sol-wrap-unwrap --from-key-file wallet.json --action wrap
+
+# Wrap a specific amount of SOL to wSOL
+ff sol-wrap-unwrap --key-bs58 "5DtSe8Zo4U9K93RcXLXSYzjnEXGMi7wKEpiLRZtpEq8fZfCQcS9YZ8PpnQMRNXC6iL9NUJQD5Q3z2sY3mwTUefSD" --amount 1.5
+
+# Unwrap all wSOL to SOL
+ff sol-wrap-unwrap --from-key-file wallet.json --action unwrap
+
+# Process multiple wallets from a CSV file
+ff sol-wrap-unwrap --wallets wallets.csv --action wrap --min-sol-balance 0.05
+```
+
+### wrap-sol
+
+Wrap SOL to wSOL (shorter command for SOL wrapping).
+
+```bash
+ff wrap-sol [--from-key-file <path> | --from-key-bs58 <string> | --key-array-file <path> | --key-bs58 <string>] [--wallets <path>] [options]
+```
+
+**Options:**
+- `--from-key-file <path>`: Path to source wallet keypair file (array format)
+- `--from-key-bs58 <string>`: Source wallet private key in base58 format
+- `--key-array-file <path>`: Alias for --from-key-file
+- `--key-bs58 <string>`: Alias for --from-key-bs58
+- `--wallets <path>`: Path to CSV file containing wallet addresses and private keys (address,base58,array)
+- `--amount <sol>`: Amount of SOL to wrap (applies only to single wallet)
+- `--min-sol-balance <sol>`: Minimum SOL balance to keep when wrapping, default: 0.02
+- `--rpc <url>`: Solana RPC URL (optional)
+
+**Examples:**
+```bash
+# Wrap SOL to wSOL, keeping 0.02 SOL as minimum balance
+ff wrap-sol --from-key-file wallet.json
+
+# Wrap a specific amount of SOL to wSOL
+ff wrap-sol --key-bs58 "5DtSe8Zo4U9K93RcXLXSYzjnEXGMi7wKEpiLRZtpEq8fZfCQcS9YZ8PpnQMRNXC6iL9NUJQD5Q3z2sY3mwTUefSD" --amount 1.5
+
+# Process multiple wallets from a CSV file
+ff wrap-sol --wallets wallets.csv --min-sol-balance 0.05
+```
+
+### unwrap-sol
+
+Unwrap wSOL to SOL (shorter command for wSOL unwrapping).
+
+```bash
+ff unwrap-sol [--from-key-file <path> | --from-key-bs58 <string> | --key-array-file <path> | --key-bs58 <string>] [--wallets <path>] [options]
+```
+
+**Options:**
+- `--from-key-file <path>`: Path to source wallet keypair file (array format)
+- `--from-key-bs58 <string>`: Source wallet private key in base58 format
+- `--key-array-file <path>`: Alias for --from-key-file
+- `--key-bs58 <string>`: Alias for --from-key-bs58
+- `--wallets <path>`: Path to CSV file containing wallet addresses and private keys (address,base58,array)
+- `--amount <sol>`: Amount of wSOL to unwrap (applies only to single wallet)
+- `--rpc <url>`: Solana RPC URL (optional)
+
+**Examples:**
+```bash
+# Unwrap all wSOL to SOL
+ff unwrap-sol --from-key-file wallet.json
+
+# Unwrap wSOL with base58 key
+ff unwrap-sol --key-bs58 "5DtSe8Zo4U9K93RcXLXSYzjnEXGMi7wKEpiLRZtpEq8fZfCQcS9YZ8PpnQMRNXC6iL9NUJQD5Q3z2sY3mwTUefSD"
+
+# Process multiple wallets from a CSV file
+ff unwrap-sol --wallets wallets.csv
+```
 
 ## License
 

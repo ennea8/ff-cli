@@ -17,6 +17,7 @@ import { executeFileEncryption, executeFileDecryption } from './file-crypto';
 import { executeKeyCommand } from './key-utils';
 import { executeBalance } from './balance';
 import { executeDrainWallet } from './drain-wallet';
+import { executeSolWrapping } from './sol-wrap-unwrap';
 import fs from 'fs';
 import path from 'path';
 
@@ -288,6 +289,125 @@ program
         tokens,
         excludeTokens,
         minBalance: options.minBalance,
+      }
+    );
+  });
+
+// SOL wrap/unwrap combined command
+program
+  .command('sol-wrap-unwrap')
+  .description('Wrap SOL to wSOL and unwrap wSOL to SOL')
+  .option('--from-key-file <path>', 'Path to source wallet keypair file (array format)')
+  .option('--from-key-bs58 <string>', 'Source wallet private key in base58 format')
+  .option('--key-array-file <path>', 'Alias for --from-key-file')
+  .option('--key-bs58 <string>', 'Alias for --from-key-bs58')
+  .option('--wallets <path>', 'Path to CSV file containing wallet addresses and private keys (address,base58,array)')
+  .option('--action <action>', 'Action to perform: wrap (SOL to wSOL) or unwrap (wSOL to SOL)', 'wrap')
+  .option('--amount <sol>', 'Amount of SOL to wrap/unwrap (applies only to single wallet)', (val) => parseFloat(val))
+  .option('--min-sol-balance <sol>', 'Minimum SOL balance to keep when wrapping', (val) => parseFloat(val), 0.02)
+  .option('--rpc <url>', 'Solana RPC URL', process.env.SOLANA_RPC_URL)
+  .action(async (options) => {
+    // Check if either direct key or wallet file is provided
+    if (!options.fromKeyFile && !options.fromKeyBs58 && 
+        !options.keyArrayFile && !options.keyBs58 && 
+        !options.wallets) {
+      console.error('Error: Either --from-key-file, --from-key-bs58, --key-array-file, --key-bs58, or --wallets must be provided');
+      process.exit(1);
+    }
+
+    // Map the alias options to standard options
+    const keyFile = options.fromKeyFile || options.keyArrayFile;
+    const keyBs58 = options.fromKeyBs58 || options.keyBs58;
+
+    // Validate action
+    const action = options.action.toLowerCase();
+    if (action !== 'wrap' && action !== 'unwrap') {
+      console.error('Error: --action must be either "wrap" or "unwrap"');
+      process.exit(1);
+    }
+
+    await executeSolWrapping(
+      options.rpc,
+      action,
+      keyFile,
+      keyBs58,
+      {
+        minSolBalance: options.minSolBalance,
+        amount: options.amount,
+        walletPath: options.wallets
+      }
+    );
+  });
+
+// Separate commands for wrap and unwrap
+program
+  .command('wrap-sol')
+  .description('Wrap SOL to wSOL')
+  .option('--from-key-file <path>', 'Path to source wallet keypair file (array format)')
+  .option('--from-key-bs58 <string>', 'Source wallet private key in base58 format')
+  .option('--key-array-file <path>', 'Alias for --from-key-file')
+  .option('--key-bs58 <string>', 'Alias for --from-key-bs58')
+  .option('--wallets <path>', 'Path to CSV file containing wallet addresses and private keys (address,base58,array)')
+  .option('--amount <sol>', 'Amount of SOL to wrap (applies only to single wallet)', (val) => parseFloat(val))
+  .option('--min-sol-balance <sol>', 'Minimum SOL balance to keep when wrapping', (val) => parseFloat(val), 0.02)
+  .option('--rpc <url>', 'Solana RPC URL', process.env.SOLANA_RPC_URL)
+  .action(async (options) => {
+    // Check if either direct key or wallet file is provided
+    if (!options.fromKeyFile && !options.fromKeyBs58 && 
+        !options.keyArrayFile && !options.keyBs58 && 
+        !options.wallets) {
+      console.error('Error: Either --from-key-file, --from-key-bs58, --key-array-file, --key-bs58, or --wallets must be provided');
+      process.exit(1);
+    }
+
+    // Map the alias options to standard options
+    const keyFile = options.fromKeyFile || options.keyArrayFile;
+    const keyBs58 = options.fromKeyBs58 || options.keyBs58;
+
+    await executeSolWrapping(
+      options.rpc,
+      'wrap',
+      keyFile,
+      keyBs58,
+      {
+        minSolBalance: options.minSolBalance,
+        amount: options.amount,
+        walletPath: options.wallets
+      }
+    );
+  });
+
+program
+  .command('unwrap-sol')
+  .description('Unwrap wSOL to SOL')
+  .option('--from-key-file <path>', 'Path to source wallet keypair file (array format)')
+  .option('--from-key-bs58 <string>', 'Source wallet private key in base58 format')
+  .option('--key-array-file <path>', 'Alias for --from-key-file')
+  .option('--key-bs58 <string>', 'Alias for --from-key-bs58')
+  .option('--wallets <path>', 'Path to CSV file containing wallet addresses and private keys (address,base58,array)')
+  .option('--amount <sol>', 'Amount of wSOL to unwrap (applies only to single wallet)', (val) => parseFloat(val))
+  .option('--rpc <url>', 'Solana RPC URL', process.env.SOLANA_RPC_URL)
+  .action(async (options) => {
+    // Check if either direct key or wallet file is provided
+    if (!options.fromKeyFile && !options.fromKeyBs58 && 
+        !options.keyArrayFile && !options.keyBs58 && 
+        !options.wallets) {
+      console.error('Error: Either --from-key-file, --from-key-bs58, --key-array-file, --key-bs58, or --wallets must be provided');
+      process.exit(1);
+    }
+
+    // Map the alias options to standard options
+    const keyFile = options.fromKeyFile || options.keyArrayFile;
+    const keyBs58 = options.fromKeyBs58 || options.keyBs58;
+
+    await executeSolWrapping(
+      options.rpc,
+      'unwrap',
+      keyFile,
+      keyBs58,
+      {
+        amount: options.amount,
+        walletPath: options.wallets
       }
     );
   });
