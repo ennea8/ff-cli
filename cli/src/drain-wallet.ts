@@ -185,6 +185,59 @@ const transferAllTokens = async (
   
   logger.info(`Transferring ${tokenAccounts.length} token types to ${destinationAddress}`);
   
+  // Check current SOL balance before attempting token transfers
+  const currentBalance = await connection.getBalance(sourceKeypair.publicKey);
+  const currentSol = currentBalance / LAMPORTS_PER_SOL;
+  
+  // Check if we need to create recipient token accounts
+  const destinationPubkey = new PublicKey(destinationAddress);
+  const recipientATACheckPromises = tokenAccounts.filter(acc => !acc.isWSol).map(async (tokenAccount) => {
+    const mint = new PublicKey(tokenAccount.mint);
+    const tokenProgramId = new PublicKey(tokenAccount.programId);
+    const recipientTokenAddress = await getAssociatedTokenAddress(
+      mint,
+      destinationPubkey,
+      false,
+      tokenProgramId
+    );
+    const accountInfo = await connection.getAccountInfo(recipientTokenAddress);
+    return {
+      mint: tokenAccount.mint,
+      needsATA: accountInfo === null,
+    };
+  });
+  
+  const recipientATAResults = await Promise.all(recipientATACheckPromises);
+  const atasToCreate = recipientATAResults.filter(r => r.needsATA).length;
+  
+  // Estimate minimum SOL needed for ATA creation
+  // Each ATA costs approximately 0.00203928 SOL on mainnet/devnet
+  const estimatedRentPerATA = 0.00203928;
+  const estimatedATACreationCost = atasToCreate * estimatedRentPerATA;
+  
+  // Plus transaction fees for the transfers
+  const estimatedTxFees = tokenAccounts.length * 0.00001;
+  const totalEstimatedCost = estimatedATACreationCost + estimatedTxFees;
+  
+  // Larger safety buffer to handle network conditions
+  const safetyBuffer = 0.001; // 1,000,000 lamports (much more conservative)
+  const minimumSolNeeded = Math.max(totalEstimatedCost + safetyBuffer, 0.002); // Minimum 0.002 SOL required
+  
+  if (currentSol < minimumSolNeeded) {
+    const errorMsg = `Insufficient SOL balance (${currentSol.toFixed(6)} SOL) to cover token transfers. ` +
+      `Estimated need: ${minimumSolNeeded.toFixed(6)} SOL (${atasToCreate} ATAs to create, cost: ~${estimatedATACreationCost.toFixed(6)} SOL + fees)`;
+    logger.error(errorMsg);
+    errors.push(errorMsg);
+    
+    // Return early if we know there's not enough SOL
+    return { transferred, errors };
+  }
+  
+  // Log ATA creation information
+  if (atasToCreate > 0) {
+    logger.info(`Will create ${atasToCreate} Associated Token Accounts for recipient with estimated cost of ~${estimatedATACreationCost.toFixed(6)} SOL`);
+  }
+  
   for (const tokenAccount of tokenAccounts) {
     if (tokenAccount.isWSol) {
       // Skip WSOL here, we'll handle it separately
@@ -278,26 +331,78 @@ const transferRemainingSol = async (
   const currentBalance = await connection.getBalance(sourceKeypair.publicKey);
   const currentSol = currentBalance / LAMPORTS_PER_SOL;
   
-  // Estimate transaction fee (typically 0.000005 SOL)
-  const estimatedFee = 0.000005;
-  const transferAmount = currentSol - keepAmount - estimatedFee;
-  
-  if (transferAmount <= 0) {
-    logger.warn(`Insufficient SOL to transfer after keeping ${keepAmount} SOL and accounting for fees`);
+  // Hard minimum SOL requirement to prevent insufficient funds errors
+  const minRequiredSol = 0.002; // 2,000,000 lamports
+  if (currentSol < minRequiredSol) {
+    logger.warn(`SOL balance (${currentSol.toFixed(6)} SOL) is too low to safely perform transfer. Minimum recommended: ${minRequiredSol} SOL`);
     return { transferred: 0, signature: null };
   }
   
-  logger.info(`Transferring ${transferAmount} SOL to ${destinationAddress} (keeping ${keepAmount} SOL)`);
+  // Create a transaction to estimate fees
+  const transaction = new Transaction().add(
+    SystemProgram.transfer({
+      fromPubkey: sourceKeypair.publicKey,
+      toPubkey: new PublicKey(destinationAddress),
+      lamports: 0, // Placeholder amount, will update after fee calculation
+    })
+  );
+
+  // Get the recent blockhash
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+  transaction.recentBlockhash = blockhash;
+  transaction.feePayer = sourceKeypair.publicKey;
+
+  // Calculate fee more precisely using getFeeForMessage
+  let estimatedFee: number;
+  try {
+    // For @solana/web3.js >= 1.73.0, we can use getFeeForMessage
+    const message = transaction.compileMessage();
+    const feeResponse = await connection.getFeeForMessage(message, 'confirmed');
+    
+    // Check if fee calculation was successful
+    if (feeResponse.value === null) {
+      // Fall back to a safe estimate if fee calculation failed
+      estimatedFee = 0.0001; // 100,000 lamports (conservative estimate)
+      logger.warn(`Could not get exact fee, using safe estimate of ${estimatedFee} SOL`);
+    } else {
+      estimatedFee = feeResponse.value / LAMPORTS_PER_SOL;
+      logger.info(`Calculated transaction fee: ${estimatedFee.toFixed(6)} SOL`);
+    }
+  } catch (error) {
+    // Fall back to a conservative estimate if getFeeForMessage is not available or fails
+    estimatedFee = 0.0001; // 100,000 lamports (conservative estimate)
+    logger.warn(`Error calculating exact fee, using safe estimate of ${estimatedFee} SOL: ${error}`);
+  }
+  
+  // Add a larger safety buffer to the fee to handle network fluctuations and rent requirements
+  const safetyBuffer = 0.001; // 1,000,000 lamports (much more conservative)
+  const totalFee = estimatedFee + safetyBuffer;
+  
+  // Calculate transfer amount
+  const transferAmount = currentSol - keepAmount - totalFee;
+  
+  if (transferAmount <= 0) {
+    logger.warn(`Insufficient SOL to transfer after keeping ${keepAmount} SOL and accounting for fees (${totalFee.toFixed(6)} SOL)`);
+    return { transferred: 0, signature: null };
+  }
+  
+  // Set a minimum practical transfer amount to avoid dust transfers
+  const minTransferAmount = 0.000001; // 1,000 lamports
+  if (transferAmount < minTransferAmount) {
+    logger.warn(`Calculated transfer amount (${transferAmount.toFixed(9)} SOL) is below minimum practical amount (${minTransferAmount} SOL). Skipping transfer.`);
+    return { transferred: 0, signature: null };
+  }
+  
+  // Update the transaction with the calculated amount
+  transaction.instructions[0] = SystemProgram.transfer({
+    fromPubkey: sourceKeypair.publicKey,
+    toPubkey: new PublicKey(destinationAddress),
+    lamports: Math.floor(transferAmount * LAMPORTS_PER_SOL),
+  });
+  
+  logger.info(`Transferring ${transferAmount.toFixed(9)} SOL to ${destinationAddress} (keeping ${keepAmount} SOL plus ${totalFee.toFixed(6)} SOL for fees)`);
   
   try {
-    const transaction = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey: sourceKeypair.publicKey,
-        toPubkey: new PublicKey(destinationAddress),
-        lamports: Math.floor(transferAmount * LAMPORTS_PER_SOL),
-      })
-    );
-    
     const signature = await sendAndConfirmTransaction(
       connection,
       transaction,
@@ -374,6 +479,20 @@ export const executeDrainWallet = async (
     
     // Discover wallet assets
     const assets = await discoverWalletAssets(connection, sourceKeypair.publicKey.toString());
+    
+    // Validate if keepSol amount is feasible with current balance
+    if (keepSol > 0 && keepSol > assets.solBalance) {
+      logger.warn(`Keep SOL amount (${keepSol}) exceeds current wallet balance (${assets.solBalance.toFixed(6)} SOL)`);
+      
+      if (!dryRun) {
+        throw new Error(`Keep SOL amount (${keepSol}) exceeds current wallet balance (${assets.solBalance.toFixed(6)} SOL)`);
+      }
+    }
+    
+    // If total SOL balance is too low, warn about potential issues
+    if (assets.solBalance < 0.002) {
+      logger.warn(`WARNING: SOL balance (${assets.solBalance.toFixed(6)}) is very low and may be insufficient for transaction fees and rent requirements`);
+    }
     
     // Filter token accounts based on options
     let filteredTokenAccounts = assets.tokenAccounts;

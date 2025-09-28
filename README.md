@@ -50,6 +50,7 @@ npm link
 | `balance-query` | Query balances for multiple wallets | Portfolio tracking, auditing |
 | `balance` | Query balance for a specific address | Quick account checks |
 | `drain-wallet` | Transfer all assets and close accounts | Wallet migration, consolidation |
+| `batch-drain-wallet` | Batch transfer assets from multiple wallets | Mass wallet migration |
 | `sol-wrap-unwrap` | Wrap SOL to wSOL or unwrap wSOL to SOL | Liquidity management |
 | `wrap-sol` | Wrap SOL to wSOL | DeFi preparation |
 | `unwrap-sol` | Unwrap wSOL to SOL | Converting back to native SOL |
@@ -252,6 +253,73 @@ ff drain-wallet --from-key-file wallet.json --to DEST_ADDRESS --exclude-tokens "
 ff drain-wallet --from-key-file wallet.json --to DEST_ADDRESS --min-balance 0.001
 ```
 
+### batch-drain-wallet
+
+Batch transfer all assets from multiple wallets to their respective destinations.
+
+```bash
+ff batch-drain-wallet --from-wallets <path> --to-addresses <path> [options]
+```
+
+**Options:**
+- `--from-wallets <path>`: Path to CSV file with source wallet addresses and private keys (3-column format)
+- `--to-addresses <path>`: Path to file with destination addresses (can be single column or CSV)
+- `--indices <list>`: Comma-separated list of specific indices to process (e.g., "0,2,5")
+- `--rpc <url>`: Solana RPC URL (optional)
+- `--dry-run`: Simulate the operation without executing transfers
+- `--no-close-accounts`: Skip closing token accounts
+- `--no-reclaim-rent`: Skip rent reclamation
+- `--keep-sol <amount>`: Amount of SOL to keep in source wallet (default: 0)
+- `--tokens <list>`: Comma-separated list of specific token mints to transfer
+- `--exclude-tokens <list>`: Comma-separated list of token mints to exclude
+- `--min-balance <amount>`: Minimum token balance to transfer (skip dust)
+
+**File Formats:**
+
+Source wallets file (3-column format):
+```csv
+address,base58,array
+Address1,5DtSe8...private_key1,[array_format]
+Address2,4CxWt2...private_key2,[array_format]
+```
+
+Destination addresses file (two formats supported):
+
+Single column format:
+```
+DestAddress1
+DestAddress2
+DestAddress3
+```
+
+Or CSV format (will use first column):
+```csv
+destination,label,other_data
+DestAddress1,Wallet1,notes
+DestAddress2,Wallet2,notes
+```
+
+**Examples:**
+```bash
+# Basic batch drain operation
+ff batch-drain-wallet --from-wallets source_wallets.csv --to-addresses destination_addresses.txt
+
+# Dry run to preview operations
+ff batch-drain-wallet --from-wallets source_wallets.csv --to-addresses destination_addresses.txt --dry-run
+
+# Keep some SOL in source wallets (recommended for devnet: at least 0.002 SOL)
+ff batch-drain-wallet --from-wallets source_wallets.csv --to-addresses destination_addresses.txt --keep-sol 0.002
+
+# Transfer only specific tokens
+ff batch-drain-wallet --from-wallets source_wallets.csv --to-addresses destination_addresses.txt --tokens "MINT1,MINT2"
+
+# Process only specific indices (e.g. only the 1st, 3rd and 5th entries)
+ff batch-drain-wallet --from-wallets source_wallets.csv --to-addresses destination_addresses.txt --indices "0,2,4"
+
+# Dry run to preview operations before executing
+ff batch-drain-wallet --from-wallets source_wallets.csv --to-addresses destination_addresses.txt --dry-run
+```
+
 **Features:**
 - **Asset Discovery**: Automatically finds all SOL and token balances
 - **WSOL Unwrapping**: Converts wrapped SOL back to native SOL
@@ -260,6 +328,14 @@ ff drain-wallet --from-key-file wallet.json --to DEST_ADDRESS --min-balance 0.00
 - **Rent Reclamation**: Recovers ~0.002 SOL per closed token account
 - **Progress Tracking**: Real-time updates and detailed logging
 - **CSV Output**: Saves operation results to timestamped CSV file
+
+**Important Notes:**
+- When running on devnet, keep at least 0.002 SOL in source wallets to avoid transaction failures
+- Each Associated Token Account (ATA) creation costs approximately 0.00203928 SOL
+- Using `--dry-run` is recommended to estimate costs before actual execution
+- For batch operations, use `--keep-sol 0.002` or higher to ensure transaction fees can be covered
+- Failed operations are saved to a CSV file with indices for easy retrying with the `--indices` option
+- The indices in the CSV file start from 0 (first entry in source/destination files is index 0)
 - **Error Recovery**: Continues operation even if some transfers fail
 
 **Security Features:**

@@ -17,6 +17,7 @@ import { executeFileEncryption, executeFileDecryption } from './file-crypto';
 import { executeKeyCommand } from './key-utils';
 import { executeBalance } from './balance';
 import { executeDrainWallet } from './drain-wallet';
+import { executeBatchDrainWallet } from './batch-drain-wallet';
 import { executeSolWrapping } from './sol-wrap-unwrap';
 import fs from 'fs';
 import path from 'path';
@@ -289,6 +290,45 @@ program
         tokens,
         excludeTokens,
         minBalance: options.minBalance,
+      }
+    );
+  });
+
+// Batch drain wallet command - transfer all assets from multiple wallets to their destinations
+program
+  .command('batch-drain-wallet')
+  .description('Batch transfer all assets from multiple wallets to their respective destinations')
+  .requiredOption('--from-wallets <path>', 'Path to CSV file with source wallet addresses and private keys (3-column format)')
+  .requiredOption('--to-addresses <path>', 'Path to file with destination addresses (can be single column or CSV)')
+  .option('--indices <list>', 'Comma-separated list of specific indices to process (e.g., "0,2,5")')
+  .option('--rpc <url>', 'Solana RPC URL', process.env.SOLANA_RPC_URL)
+  .option('--dry-run', 'Simulate the operation without executing transfers', false)
+  .option('--no-close-accounts', 'Skip closing token accounts')
+  .option('--no-reclaim-rent', 'Skip rent reclamation')
+  .option('--keep-sol <amount>', 'Amount of SOL to keep in source wallet', (value) => parseFloat(value), 0)
+  .option('--tokens <list>', 'Comma-separated list of specific token mints to transfer')
+  .option('--exclude-tokens <list>', 'Comma-separated list of token mints to exclude from transfer')
+  .option('--min-balance <amount>', 'Minimum token balance to transfer (skip dust)', (value) => parseFloat(value), 0)
+  .action(async (options) => {
+    const tokens = options.tokens ? options.tokens.split(',').map((t: string) => t.trim()) : undefined;
+    const excludeTokens = options.excludeTokens ? options.excludeTokens.split(',').map((t: string) => t.trim()) : undefined;
+    
+    // 处理索引参数
+    const indices = options.indices ? options.indices.split(',').map((i: string) => parseInt(i.trim(), 10)) : [];
+    
+    await executeBatchDrainWallet(
+      options.rpc,
+      options.fromWallets,
+      options.toAddresses,
+      {
+        dryRun: options.dryRun,
+        closeAccounts: options.closeAccounts,
+        reclaimRent: options.reclaimRent,
+        keepSol: options.keepSol,
+        tokens,
+        excludeTokens,
+        minBalance: options.minBalance,
+        indices: indices.length > 0 ? indices : undefined, // 如果有指定索引，则传入
       }
     );
   });
