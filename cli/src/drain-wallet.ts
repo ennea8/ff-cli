@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import {
   Connection,
   Keypair,
@@ -48,18 +49,26 @@ interface WalletAssets {
   tokenAccounts: TokenAccountInfo[];
   totalRentReclaim: number;
 }
-
 // Interface for drain operation result
 interface DrainResult {
   success: boolean;
   transferredAssets: {
     sol: number;
-    tokens: { mint: string; amount: string; }[];
+    tokens: {
+      mint: string;
+      amount: number;
+      decimals: number;
+    }[];
   };
   closedAccounts: number;
   reclaimedRent: number;
   finalBalance: number;
   errors: string[];
+  signatures: {
+    solTransfer?: string;
+    tokenTransfers: string[];
+    accountClosing: string[];
+  };
 }
 
 /**
@@ -434,6 +443,7 @@ export const executeDrainWallet = async (
     tokens?: string[];
     excludeTokens?: string[];
     minBalance?: number;
+    skipLog?: boolean; // 新参数：跳过生成CSV日志文件
   } = {}
 ): Promise<DrainResult> => {
   const {
@@ -444,6 +454,7 @@ export const executeDrainWallet = async (
     tokens,
     excludeTokens,
     minBalance = 0,
+    skipLog = false,
   } = options;
   
   try {
@@ -528,24 +539,37 @@ export const executeDrainWallet = async (
     });
     
     if (dryRun) {
+      const walletBalance = await connection.getBalance(sourceKeypair.publicKey);
       logger.info('\n' + '='.repeat(20) + ' DRY RUN COMPLETED - NO ACTUAL TRANSFERS ' + '='.repeat(20));
       return {
         success: true,
-        transferredAssets: { sol: 0, tokens: [] },
+        transferredAssets: {
+          sol: 0,
+          tokens: [],
+        },
         closedAccounts: 0,
         reclaimedRent: 0,
-        finalBalance: assets.solBalance,
+        finalBalance: walletBalance / LAMPORTS_PER_SOL,
         errors: [],
+        signatures: {
+          tokenTransfers: [],
+          accountClosing: []
+        }
       };
     }
     
+    const walletBalance = await connection.getBalance(sourceKeypair.publicKey);
     const result: DrainResult = {
       success: true,
       transferredAssets: { sol: 0, tokens: [] },
       closedAccounts: 0,
       reclaimedRent: 0,
-      finalBalance: 0,
+      finalBalance: walletBalance / LAMPORTS_PER_SOL,
       errors: [],
+      signatures: {
+        tokenTransfers: [],
+        accountClosing: []
+      }
     };
     
     // Step 1: Handle WSOL unwrapping
@@ -570,9 +594,10 @@ export const executeDrainWallet = async (
       nonWsolAccounts
     );
     
-    result.transferredAssets.tokens = tokenTransferResult.transferred.map(acc => ({
-      mint: acc.mint,
-      amount: (Number(acc.amount) / Math.pow(10, acc.decimals)).toString(),
+    result.transferredAssets.tokens = tokenTransferResult.transferred.map(token => ({
+      mint: token.mint,
+      amount: Number(token.amount) / Math.pow(10, token.decimals),
+      decimals: token.decimals
     }));
     result.errors.push(...tokenTransferResult.errors);
     
@@ -616,26 +641,28 @@ export const executeDrainWallet = async (
       result.errors.forEach(error => logger.warn(`  - ${error}`));
     }
     
-    // Save results to CSV
-    const timestamp = getCurrentTimestamp();
-    const outDir = 'out';
-    if (!fs.existsSync(outDir)) {
-      fs.mkdirSync(outDir, { recursive: true });
+    // Save results to CSV file - 除非设置了skipLog
+    if (!skipLog) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+      const outDir = path.join(process.cwd(), 'out');
+      if (!fs.existsSync(outDir)) {
+        fs.mkdirSync(outDir, { recursive: true });
+      }
+      const outputPath = `${outDir}/drain_wallet_${timestamp}.csv`;
+      
+      const csvContent = [
+        'operation,asset_type,mint_address,amount,status,signature',
+        ...result.transferredAssets.tokens.map(token => 
+          `transfer,token,${token.mint},${token.amount},success,`
+        ),
+        `transfer,sol,,${result.transferredAssets.sol},${result.transferredAssets.sol > 0 ? 'success' : 'skipped'},${result.signatures.solTransfer || ''}`,
+        `rent_reclaim,sol,,${result.reclaimedRent},success,`,
+        `accounts_closed,count,,${result.closedAccounts},success,`,
+      ].join('\n');
+      
+      fs.writeFileSync(outputPath, csvContent);
+      logger.info(`Results saved to: ${outputPath}`);
     }
-    const outputPath = `${outDir}/drain_wallet_${timestamp}.csv`;
-    
-    const csvContent = [
-      'operation,asset_type,mint_address,amount,status,signature',
-      ...result.transferredAssets.tokens.map(token => 
-        `transfer,token,${token.mint},${token.amount},success,`
-      ),
-      `transfer,sol,,${result.transferredAssets.sol},success,`,
-      `rent_reclaim,sol,,${result.reclaimedRent},success,`,
-      `accounts_closed,count,,${result.closedAccounts},success,`,
-    ].join('\n');
-    
-    fs.writeFileSync(outputPath, csvContent);
-    logger.info(`Results saved to: ${outputPath}`);
     
     return result;
     

@@ -121,6 +121,31 @@ export const executeBatchDrainWallet = async (
     
     const failedOps: FailedOperation[] = [];
     
+    // 准备批量日志文件
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+    const outDir = path.join(process.cwd(), 'out');
+    if (!fs.existsSync(outDir)) {
+      fs.mkdirSync(outDir, { recursive: true });
+    }
+    
+    // 创建单一批处理日志文件
+    const batchLogPath = path.join(outDir, `batch_drain_${timestamp}.csv`);
+    const batchLogHeader = 'index,from_address,to_address,sol_amount,tokens_transferred,status,timestamp,message\n';
+    fs.writeFileSync(batchLogPath, batchLogHeader);
+    logger.info(`Batch log file created at: ${batchLogPath}`);
+    
+    // 记录全局操作结果
+    const batchResults: Array<{
+      index: number;
+      fromAddress: string;
+      toAddress: string;
+      solAmount: number;
+      tokensTransferred: number;
+      status: 'success' | 'failed';
+      timestamp: string;
+      message?: string;
+    }> = [];
+    
     for (let i = 0; i < operationCount; i++) {
       // 如果指定了索引列表，则只处理这些索引
       if (indicesToProcess.length > 0 && !indicesToProcess.includes(i)) {
@@ -139,11 +164,23 @@ export const executeBatchDrainWallet = async (
         
         // 记录失败的操作
         failedOps.push({
-          index: i,  // 使用索引替代私钥
+          index: i,
           fromAddress: sourceWallet.address,
           toAddress: destinationAddress,
           reason: failureReason,
           timestamp: new Date().toISOString(),
+        });
+        
+        // 记录到批处理结果
+        batchResults.push({
+          index: i,
+          fromAddress: sourceWallet.address,
+          toAddress: destinationAddress,
+          solAmount: 0,
+          tokensTransferred: 0,
+          status: 'failed',
+          timestamp: new Date().toISOString(),
+          message: failureReason
         });
         
         failCount++;
@@ -163,13 +200,27 @@ export const executeBatchDrainWallet = async (
           logger.warn(`Low keepSol value (${options.keepSol} SOL) may lead to failures due to transaction fees and rent requirements`);
         }
         
-        await executeDrainWallet(
+        // 设置skipLog为true，避免生成单个钱包的日志文件
+        (adjustedOptions as any).skipLog = true;
+        
+        const result = await executeDrainWallet(
           rpcUrl,
           undefined, // sourceKeypairPath
           sourceWallet.base58Key, // sourceKeyBs58
           destinationAddress,
           adjustedOptions
         );
+        
+        // 记录成功结果
+        batchResults.push({
+          index: i,
+          fromAddress: sourceWallet.address,
+          toAddress: destinationAddress,
+          solAmount: result.transferredAssets.sol,
+          tokensTransferred: result.transferredAssets.tokens.length,
+          status: 'success',
+          timestamp: new Date().toISOString()
+        });
         
         logger.info(`Successfully drained wallet ${sourceWallet.address}`);
         successCount++;
@@ -187,11 +238,23 @@ export const executeBatchDrainWallet = async (
         
         // 记录失败的操作
         failedOps.push({
-          index: i,  // 使用索引替代私钥
+          index: i,
           fromAddress: sourceWallet.address,
           toAddress: destinationAddress,
           reason: failureReason,
           timestamp: new Date().toISOString(),
+        });
+        
+        // 记录到批处理结果
+        batchResults.push({
+          index: i,
+          fromAddress: sourceWallet.address,
+          toAddress: destinationAddress,
+          solAmount: 0,
+          tokensTransferred: 0,
+          status: 'failed',
+          timestamp: new Date().toISOString(),
+          message: failureReason
         });
         
         failCount++;
@@ -207,16 +270,17 @@ export const executeBatchDrainWallet = async (
     logger.info(`Failed: ${failCount}`);
     logger.info('='.repeat(50));
     
+    // 将所有批处理结果写入CSV文件
+    for (const result of batchResults) {
+      const csvLine = `${result.index},${result.fromAddress},${result.toAddress},${result.solAmount},${result.tokensTransferred},${result.status},${result.timestamp},"${result.message || ''}"\n`;
+      fs.appendFileSync(batchLogPath, csvLine);
+    }
+    
+    logger.info(`Batch operation results saved to: ${batchLogPath}`);
+    
     // 如果存在失败的操作，将它们记录到一个单独的CSV文件中
     if (failedOps.length > 0) {
-      // 创建输出目录如果不存在
-      const outDir = path.join(process.cwd(), 'out');
-      if (!fs.existsSync(outDir)) {
-        fs.mkdirSync(outDir, { recursive: true });
-      }
-      
-      // 生成时间戳文件名
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+      // 生成失败操作文件名
       const failedOpsFilePath = path.join(outDir, `failed_drains_${timestamp}.csv`);
       
       // 写入CSV文件
