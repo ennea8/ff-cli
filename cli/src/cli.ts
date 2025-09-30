@@ -132,13 +132,15 @@ program
 // Wallet generation command
 program
   .command('generate-wallets')
-  .description('Generate random Solana wallets and save to CSV file')
+  .description('Generate random Solana wallets and save to file')
   .requiredOption('--count <number>', 'Number of wallets to generate', (value) => parseInt(value, 10))
-  .option('--output <path>', 'Output CSV file path (optional)')
+  .option('--output <path>', 'Output file path (optional)')
+  .option('--json', 'Output in JSON format compatible with web3.Keypair.fromSecretKey', false)
   .action(async (options) => {
     await executeWalletGeneration(
       options.count,
-      options.output
+      options.output,
+      options.json
     );
   });
 
