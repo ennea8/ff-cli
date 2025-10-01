@@ -16,3 +16,7 @@ accounts
 /*.tgz
 
 .DS_Store
+
+
+/mnemonic*
+/test-*

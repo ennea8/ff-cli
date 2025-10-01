@@ -132,15 +132,25 @@ program
 // Wallet generation command
 program
   .command('generate-wallets')
-  .description('Generate random Solana wallets and save to file')
+  .description('Generate random Solana wallets or from mnemonic and save to file')
   .requiredOption('--count <number>', 'Number of wallets to generate', (value) => parseInt(value, 10))
   .option('--output <path>', 'Output file path (optional)')
   .option('--json', 'Output in JSON format compatible with web3.Keypair.fromSecretKey', false)
+  .option('--mnemonic <phrase>', 'BIP39 mnemonic phrase for deterministic generation')
+  .option('--mnemonic-file <path>', 'Path to file containing BIP39 mnemonic phrase')
+  .option('--interactive-mnemonic', 'Prompt for mnemonic phrase interactively (secure input)', false)
+  .option('--suffix <text>', 'Suffix to append to index for passphrase (only used with mnemonic)')
+  .option('--start-index <number>', 'Start index for deterministic generation (only used with mnemonic)', (value) => parseInt(value, 10), 0)
   .action(async (options) => {
     await executeWalletGeneration(
       options.count,
       options.output,
-      options.json
+      options.json,
+      options.mnemonic,
+      options.mnemonicFile,
+      options.interactiveMnemonic,
+      options.suffix,
+      options.startIndex
     );
   });
 

@@ -4,6 +4,8 @@ import { Keypair } from '@solana/web3.js';
 import { createObjectCsvWriter } from 'csv-writer';
 import { logger } from './utils';
 import bs58 from 'bs58';
+import * as bip39 from 'bip39';
+import prompts from 'prompts';
 
 // Interface for generated wallet data
 interface GeneratedWallet {
@@ -20,6 +22,50 @@ interface JsonWallet {
 
 /**
  * Generate a single random Solana wallet
+ * @returns Generated wallet with address, base58 private key, and array format
+ */
+/**
+ * Generate a wallet from mnemonic and passphrase
+ * @param mnemonic - BIP39 mnemonic
+ * @param passphrase - Passphrase to use with mnemonic
+ * @returns Generated wallet information
+ */
+function generateWalletFromMnemonic(mnemonic: string, passphrase: string): GeneratedWallet & { secretKeyArray: number[] } {
+  // Validate mnemonic
+  if (!bip39.validateMnemonic(mnemonic)) {
+    throw new Error('Invalid mnemonic');
+  }
+  
+  // Generate seed from mnemonic and passphrase
+  const seed = bip39.mnemonicToSeedSync(mnemonic, passphrase);
+  
+  // Create keypair from seed
+  const keypair = Keypair.fromSeed(seed.slice(0, 32));
+  
+  // Get public key (address)
+  const address = keypair.publicKey.toBase58();
+  
+  // Get private key in base58 format
+  const secretKeyBytes = keypair.secretKey;
+  const base58 = bs58.encode(secretKeyBytes);
+  
+  // Get private key in array format
+  const arrayData = Array.from(keypair.secretKey);
+  const array = `[${arrayData.join(',')}]`;
+  
+  // Store the actual array for JSON output
+  const secretKeyArray = Array.from(keypair.secretKey);
+  
+  return {
+    address,
+    base58,
+    array,
+    secretKeyArray
+  };
+}
+
+/**
+ * Generate a single random wallet
  * @returns Generated wallet with address, base58 private key, and array format
  */
 function generateRandomWallet(): GeneratedWallet & { secretKeyArray: number[] } {
@@ -49,12 +95,48 @@ function generateRandomWallet(): GeneratedWallet & { secretKeyArray: number[] } 
 }
 
 /**
+ * Generate multiple wallets from mnemonic
+ * @param mnemonic - BIP39 mnemonic
+ * @param count - Number of wallets to generate
+ * @param startIndex - Starting index for passphrase generation
+ * @param passphraseSuffix - Suffix to append to index for passphrase
+ * @returns Array of generated wallets
+ */
+function generateWalletsFromMnemonic(mnemonic: string, count: number, startIndex: number = 0, passphraseSuffix: string = ''): Array<GeneratedWallet & { secretKeyArray: number[] }> {
+  const wallets: Array<GeneratedWallet & { secretKeyArray: number[] }> = [];
+  
+  logger.info(`Generating ${count} wallets from mnemonic...`);
+  logger.info(`Starting from index ${startIndex} with suffix '${passphraseSuffix}'`);
+  
+  for (let i = startIndex; i < startIndex + count; i++) {
+    // Generate passphrase by combining index and suffix
+    const passphrase = `${i}${passphraseSuffix}`;
+    
+    try {
+      const wallet = generateWalletFromMnemonic(mnemonic, passphrase);
+      wallets.push(wallet);
+      
+      // Log progress for large batches
+      if (count > 10 && (i + 1 - startIndex) % 10 === 0) {
+        logger.info(`Generated ${i + 1 - startIndex}/${count} wallets`);
+      }
+    } catch (error) {
+      logger.error(`Failed to generate wallet at index ${i}: ${error}`);
+      throw error;
+    }
+  }
+  
+  logger.info(`Successfully generated ${wallets.length} wallets from mnemonic`);
+  return wallets;
+}
+
+/**
  * Generate multiple random wallets
  * @param count - Number of wallets to generate
  * @returns Array of generated wallets
  */
-function generateRandomWallets(count: number): GeneratedWallet[] {
-  const wallets: GeneratedWallet[] = [];
+function generateRandomWallets(count: number): Array<GeneratedWallet & { secretKeyArray: number[] }> {
+  const wallets: Array<GeneratedWallet & { secretKeyArray: number[] }> = [];
   
   logger.info(`Generating ${count} random wallets...`);
   
@@ -136,15 +218,98 @@ async function saveWalletsToJson(wallets: Array<GeneratedWallet & { secretKeyArr
 }
 
 /**
+ * Read mnemonic phrase from a file
+ * @param filePath - Path to the file containing the mnemonic
+ * @returns The mnemonic phrase
+ */
+async function readMnemonicFromFile(filePath: string): Promise<string> {
+  try {
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File not found: ${filePath}`);
+    }
+    
+    // Read file content and normalize it
+    let content = fs.readFileSync(filePath, 'utf8')
+      .trim()
+      .replace(/\r?\n|\r/g, ' ') // Replace newlines with spaces
+      .replace(/\s+/g, ' ');     // Normalize spaces
+    
+    // Try to validate the mnemonic
+    if (!bip39.validateMnemonic(content)) {
+      // If invalid, try to repair common issues
+      logger.warn('Mnemonic validation failed, attempting to normalize format...');
+      
+      // Try a few normalization techniques
+      const contentWithoutQuotes = content.replace(/["']/g, '');
+      
+      if (bip39.validateMnemonic(contentWithoutQuotes)) {
+        logger.info('Normalized mnemonic is now valid');
+        content = contentWithoutQuotes;
+      } else {
+        throw new Error('Invalid mnemonic in file - could not repair format');
+      }
+    }
+    
+    logger.info(`Mnemonic successfully read from ${filePath}`);
+    return content;
+  } catch (error) {
+    logger.error(`Error reading mnemonic from file: ${error}`);
+    throw error;
+  }
+}
+
+/**
+ * Get mnemonic phrase via interactive prompt
+ * @returns The mnemonic phrase entered by the user
+ */
+async function getMnemonicInteractively(): Promise<string> {
+  try {
+    logger.info('Interactive mnemonic entry:');
+    
+    const response = await prompts({
+      type: 'password',
+      name: 'mnemonic',
+      message: 'Enter your mnemonic phrase (input is hidden):',
+      validate: (value: string) => {
+        if (!value) return 'Mnemonic cannot be empty';
+        if (!bip39.validateMnemonic(value)) return 'Invalid mnemonic phrase';
+        return true;
+      }
+    });
+    
+    // User cancelled
+    if (!response.mnemonic) {
+      throw new Error('Mnemonic entry cancelled');
+    }
+    
+    return response.mnemonic.trim();
+  } catch (error) {
+    logger.error(`Error during interactive mnemonic entry: ${error}`);
+    throw error;
+  }
+}
+
+/**
  * Main function to execute wallet generation
  * @param count - Number of wallets to generate
  * @param outputPath - Output file path (optional)
  * @param jsonFormat - Whether to output in JSON format
+ * @param mnemonic - BIP39 mnemonic (optional)
+ * @param mnemonicFile - Path to file containing mnemonic (optional)
+ * @param interactiveMnemonic - Whether to prompt for mnemonic interactively (optional)
+ * @param passphraseSuffix - Suffix to append to index for passphrase (optional)
+ * @param startIndex - Starting index for passphrase generation (optional)
  */
 export const executeWalletGeneration = async (
   count: number,
   outputPath?: string,
-  jsonFormat: boolean = false
+  jsonFormat: boolean = false,
+  mnemonic?: string,
+  mnemonicFile?: string,
+  interactiveMnemonic: boolean = false,
+  passphraseSuffix?: string,
+  startIndex: number = 0
 ) => {
   try {
     // Validate parameters
@@ -156,7 +321,32 @@ export const executeWalletGeneration = async (
     }
 
     // Generate wallets
-    const wallets = generateRandomWallets(count);
+    let wallets;
+    let actualMnemonic: string | undefined = mnemonic;
+    
+    // Resolve mnemonic from different sources with priority:
+    // 1. Direct mnemonic parameter
+    // 2. Mnemonic file
+    // 3. Interactive input
+    // 4. Fall back to random generation
+    
+    if (!actualMnemonic && mnemonicFile) {
+      actualMnemonic = await readMnemonicFromFile(mnemonicFile);
+      logger.info('Using mnemonic from file');
+    }
+    
+    if (!actualMnemonic && interactiveMnemonic) {
+      actualMnemonic = await getMnemonicInteractively();
+      logger.info('Using interactively entered mnemonic');
+    }
+    
+    if (actualMnemonic) {
+      // Generate from mnemonic
+      wallets = generateWalletsFromMnemonic(actualMnemonic, count, startIndex, passphraseSuffix);
+    } else {
+      // Generate random wallets otherwise
+      wallets = generateRandomWallets(count);
+    }
 
     // Generate output filename if not provided
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, -5);
@@ -175,6 +365,11 @@ export const executeWalletGeneration = async (
     logger.info(`- Generated wallets: ${wallets.length}`);
     logger.info(`- Output file: ${finalOutputPath}`);
     logger.info(`- Format: ${jsonFormat ? 'JSON (publicKey, secretKey array)' : 'CSV (address, base58, array)'}`);
+    if (mnemonic) {
+      logger.info(`- Generation method: From mnemonic with index range ${startIndex}~${startIndex + count - 1}${passphraseSuffix ? ` and suffix '${passphraseSuffix}'` : ''}`);
+    } else {
+      logger.info(`- Generation method: Random`);
+    }
 
     // Security warning
     logger.warn(`\n⚠️  SECURITY WARNING:`);
