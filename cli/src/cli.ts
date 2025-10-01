@@ -13,6 +13,7 @@ import { executeBalanceQuery } from './balance-query';
 import { executeBatchTransfer } from './batch-transfer';
 import { executeFundAllocation } from './fund-allocation';
 import { executeWalletGeneration } from './wallet-generator';
+import { generateAndSaveMnemonic } from './mnemonic';
 import { executeFileEncryption, executeFileDecryption } from './file-crypto';
 import { executeKeyCommand } from './key-utils';
 import { executeBalance } from './balance';
@@ -125,6 +126,19 @@ program
       options.max,
       options.total,
       options.decimals,
+      options.output
+    );
+  });
+
+// Generate BIP39 mnemonic command
+program
+  .command('mnemonic')
+  .description('Generate a BIP39 mnemonic phrase and save to file')
+  .option('--strength <number>', 'Mnemonic strength in bits: 128 (12 words), 160 (15 words), 192 (18 words), 224 (21 words), or 256 (24 words)', (value) => parseInt(value, 10), 128)
+  .option('--output <path>', 'Output file path (optional)')
+  .action(async (options) => {
+    await generateAndSaveMnemonic(
+      options.strength,
       options.output
     );
   });
