@@ -15,7 +15,7 @@
     "prepublishOnly": "pnpm test",
     "version": "git add -A",
     "postversion": "git push && git push --tags",
-    "install-global": "pnpm link && pnpm link --global"
+    "install-global": "pnpm link . && pnpm link --global"
   },
   "keywords": [
     "solana",
