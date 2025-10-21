@@ -15,6 +15,32 @@ import {
 } from '@solana/spl-token';
 import { logger } from './utils';
 
+/**
+ * Safely convert decimal amount to integer units (lamports/token units)
+ * Avoids floating-point precision issues by using string manipulation
+ */
+export const convertToRawAmount = (amount: number, decimals: number): bigint => {
+  // Convert to string to avoid floating-point issues
+  const amountStr = amount.toString();
+  const [integerPart, decimalPart = ''] = amountStr.split('.');
+  
+  // Pad or truncate decimal part to match required decimals
+  const paddedDecimalPart = decimalPart.padEnd(decimals, '0').substring(0, decimals);
+  
+  // Combine integer and decimal parts
+  const rawAmountStr = integerPart + paddedDecimalPart;
+  
+  return BigInt(rawAmountStr);
+};
+
+/**
+ * Safely convert SOL amount to lamports using the unified conversion function
+ * SOL has 9 decimals (LAMPORTS_PER_SOL = 10^9)
+ */
+export const convertSolToLamports = (amountInSol: number): bigint => {
+  return convertToRawAmount(amountInSol, 9);
+};
+
 // Interface for token program info
 export interface TokenProgramInfo {
   programId: PublicKey;
@@ -135,7 +161,9 @@ export const executeAtomicTokenTransfer = async (
     }
     
     // Add transfer instruction
-    const rawAmount = amount * Math.pow(10, decimals);
+    const rawAmount = convertToRawAmount(amount, decimals);
+
+    logger.info(`createTransferInstruction rawAmount: ${rawAmount}`)
     const transferIx = createTransferInstruction(
       senderTokenAccount.address,
       recipientTokenAddress,
@@ -209,13 +237,14 @@ export const executeLegacyTokenTransfer = async (
   );
   
   // Execute transfer
+  const rawAmount = convertToRawAmount(amount, decimals);
   const signature = await transfer(
     connection,
     fromKeypair,
     fromTokenAccount.address,
     toTokenAccount.address,
     fromKeypair,
-    amount * Math.pow(10, decimals),
+    rawAmount,
     [],
     undefined,
     tokenProgramId

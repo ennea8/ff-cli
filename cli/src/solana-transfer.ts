@@ -9,6 +9,7 @@ import {
   LAMPORTS_PER_SOL,
 } from '@solana/web3.js';
 import { logger, getProgressFileName, saveProgress, loadProgress, readRecordsFromCSV } from './utils';
+import { convertSolToLamports } from './utils.token';
 
 // Interface for recipient record from CSV
 interface RecipientRecord {
@@ -42,11 +43,12 @@ const transferSol = async (
 ): Promise<string> => {
   try {
     const recipient = new PublicKey(recipientAddress);
+    const lamports = convertSolToLamports(amountInSol);
     const transaction = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: sender.publicKey,
         toPubkey: recipient,
-        lamports: amountInSol * LAMPORTS_PER_SOL,
+        lamports,
       })
     );
 

@@ -5,6 +5,7 @@ import { createObjectCsvWriter } from 'csv-writer';
 import bs58 from 'bs58';
 import { logger } from './utils';
 import { readWalletsFromCSV, WalletInfo } from './utils.wallet';
+import { convertSolToLamports } from './utils.token';
 
 // Interface for transfer instruction from CSV
 interface TransferInstruction {
@@ -83,12 +84,14 @@ const executeSolTransfer = async (
   toAddress: string,
   amount: number
 ): Promise<string> => {
+  console.log(`executeSolTransfer Transferring ${amount} SOL to ${toAddress}`);
   const toPublicKey = new PublicKey(toAddress);
+  const lamports = convertSolToLamports(amount);
   const transaction = new Transaction().add(
     SystemProgram.transfer({
       fromPubkey: fromKeypair.publicKey,
       toPubkey: toPublicKey,
-      lamports: amount * LAMPORTS_PER_SOL,
+      lamports,
     })
   );
 
