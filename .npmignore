@@ -18,8 +18,6 @@ logs/
 out/
 
 # Environment files
-.env
-.env.*
+.env*
 
-/task*
-/test*
+.wallets
