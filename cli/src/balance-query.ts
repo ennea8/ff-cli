@@ -4,7 +4,7 @@ import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 import { createObjectCsvWriter } from 'csv-writer';
 import { logger } from './utils';
-import { readWalletsFromCSV, WalletInfo } from './utils.wallet';
+import { readAddressesFromCSV } from './utils.wallet';
 
 // Interface for token account info
 interface TokenAccountInfo {
@@ -266,19 +266,19 @@ export const executeBalanceQuery = async (
 
   // Load wallet addresses from CSV
   logger.info(`Loading wallet addresses from ${walletsPath}`);
-  const wallets = readWalletsFromCSV(walletsPath);
-  logger.info(`Found ${wallets.length} wallet addresses`);
+  const walletAddresses = readAddressesFromCSV(walletsPath);
+  logger.info(`Found ${walletAddresses.length} wallet addresses`);
 
   // Prepare results array
   const results: BalanceResult[] = [];
 
   // Query balances for each wallet
-  for (let i = 0; i < wallets.length; i++) {
-    const wallet = wallets[i];
-    logger.info(`Querying balance for wallet ${i + 1}/${wallets.length}: ${wallet.address}`);
+  for (let i = 0; i < walletAddresses.length; i++) {
+    const walletAddress = walletAddresses[i];
+    logger.info(`Querying balance for wallet ${i + 1}/${walletAddresses.length}: ${walletAddress}`);
 
     const result: BalanceResult = {
-      address: wallet.address,
+      address: walletAddress,
       sol_balance: 0,
     };
 
@@ -291,12 +291,12 @@ export const executeBalanceQuery = async (
 
     try {
       // Query SOL balance
-      result.sol_balance = await querySolBalance(connection, wallet.address);
+      result.sol_balance = await querySolBalance(connection, walletAddress);
       logger.info(`SOL balance: ${result.sol_balance}`);
 
       // Query token balance if mint address is provided
       if (mintAddress) {
-        const tokenInfo = await queryTokenBalance(connection, wallet.address, mintAddress);
+        const tokenInfo = await queryTokenBalance(connection, walletAddress, mintAddress);
         result.token_balance = tokenInfo.balance;
         result.token_accounts_count = tokenInfo.accountsCount;
         result.token_type = tokenInfo.tokenType;
@@ -304,7 +304,7 @@ export const executeBalanceQuery = async (
       }
     } catch (error) {
       result.error = error instanceof Error ? error.message : String(error);
-      logger.error(`Error querying balances for ${wallet.address}: ${result.error}`);
+      logger.error(`Error querying balances for ${walletAddress}: ${result.error}`);
     }
 
     results.push(result);

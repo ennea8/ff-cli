@@ -29,15 +29,19 @@ export function fetchBs58Key(walletRecord: string): string {
 }
 
 export function fetchAddress(walletRecord: string): string {
+  const trimmed = walletRecord.trim();
+  if (!trimmed) {
+    throw new Error('Address is empty in the wallet record');
+  }
   // 查找第一个逗号的位置
-  const firstCommaIndex = walletRecord.indexOf(',');
+  const firstCommaIndex = trimmed.indexOf(',');
   
   if (firstCommaIndex === -1) {
-    throw new Error('Invalid wallet record format: expected format with at least one comma');
+    return trimmed;
   }
   
   // 提取第一个逗号之前的内容作为地址
-  const address = walletRecord.substring(0, firstCommaIndex).trim();
+  const address = trimmed.substring(0, firstCommaIndex).trim();
   
   if (!address) {
     throw new Error('Address is empty in the wallet record');
@@ -106,8 +110,33 @@ export function readWalletsFromCSV(filePath: string): WalletInfo[] {
 }
 
 export function readAddressesFromCSV(filePath: string): string[] {
-  const wallets = readWalletsFromCSV(filePath);
-  return wallets.map(wallet => wallet.address);
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const lines = content.split('\n').filter(line => line.trim() !== '');
+
+    const addresses: string[] = [];
+
+    let startIndex = 0;
+    if (lines.length > 0 && lines[0].toLowerCase().includes('address')) {
+      startIndex = 1;
+    }
+
+    for (let i = startIndex; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line === '') continue;
+
+      try {
+        const address = fetchAddress(line);
+        addresses.push(address);
+      } catch (error) {
+        console.warn(`Warning: Failed to parse address on line ${i + 1}: ${error}`);
+      }
+    }
+
+    return addresses;
+  } catch (error) {
+    throw new Error(`Failed to read address CSV file: ${error}`);
+  }
 }
 
 

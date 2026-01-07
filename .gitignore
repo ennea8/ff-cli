@@ -17,6 +17,6 @@ accounts
 
 .DS_Store
 
-
+.wallets
 /mnemonic*
 /test-*
