@@ -20,6 +20,7 @@ import { executeBalance } from './balance';
 import { executeDrainWallet } from './drain-wallet';
 import { executeBatchDrainWallet } from './batch-drain-wallet';
 import { executeSolWrapping } from './sol-wrap-unwrap';
+import { executeWalletFormat } from './wallet-format';
 import fs from 'fs';
 import path from 'path';
 
@@ -403,6 +404,27 @@ program
         walletPath: options.wallets
       }
     );
+  });
+
+// Wallet format command - normalize key inputs to CSV row
+program
+  .command('wallet-format')
+  .description('Generate single-line CSV (address,base58,array) from base58 or array key input')
+  .option('--key-bs58 <string>', 'Private key in base58 format')
+  .option('--key-array <string>', 'Private key in array format (e.g. [1,2,...])')
+  .option('--key-file <path>', 'Path to file containing the private key (auto-detect format)')
+  .option('--output-dir <path>', 'Directory to write the CSV file (defaults to ./out)')
+  .option('--stdout-only', 'Print only to stdout, do not write file', false)
+  .option('--overwrite', 'Allow overwriting existing CSV file', false)
+  .action(async (options) => {
+    await executeWalletFormat({
+      keyBs58: options.keyBs58,
+      keyArray: options.keyArray,
+      keyFile: options.keyFile,
+      outputDir: options.outputDir,
+      stdoutOnly: options.stdoutOnly,
+      overwrite: options.overwrite,
+    });
   });
 
 // Separate commands for wrap and unwrap
